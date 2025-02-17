@@ -2,17 +2,17 @@
 Core 5G NR concepts and configurations
 """
 
-from .types import ChannelType
+from .channel_types import ChannelType
 from .channels import PhysicalChannel, PDSCH, PDCCH, DMRS
 from .numerology import NRNumerology, get_numerology
 from .definitions import (
     N_SC_PER_RB,
     N_SYMBOLS_PER_SLOT,
+    N_SUBFRAMES_PER_FRAME,
     get_rb_count,
     get_frequency_range
 )
 from .carrier import CarrierConfig
-from .resource_grid import ResourceGrid
 from .resources import ResourceElement, ResourceAllocation
 
 __all__ = [

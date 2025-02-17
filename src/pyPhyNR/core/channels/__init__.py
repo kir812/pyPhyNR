@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass
 from typing import List
-from ..types import ChannelType
+from ..channel_types import ChannelType
 from ..resources import ResourceAllocation
 
 @dataclass

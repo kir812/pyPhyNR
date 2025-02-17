@@ -4,7 +4,7 @@ Physical Downlink Shared Channel (PDSCH)
 
 from dataclasses import dataclass
 from typing import List
-from ..types import ChannelType
+from ..channel_types import ChannelType
 from . import PhysicalChannel
 from ..resources import ResourceAllocation
 

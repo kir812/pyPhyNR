@@ -5,6 +5,7 @@
 # Basic resource grid parameters
 N_SC_PER_RB = 12  # Number of subcarriers per resource block
 N_SYMBOLS_PER_SLOT = 14  # Number of OFDM symbols per slot
+N_SUBFRAMES_PER_FRAME = 10  # Number of subframes per frame
 
 # Frequency Range definitions (in Hz)
 FR1_FREQ_RANGE = (410e6, 7125e6)  # 410 MHz - 7.125 GHz
