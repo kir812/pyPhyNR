@@ -68,24 +68,20 @@ def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: 
     total_symbols = total_slots * N_SYMBOLS_PER_SLOT
     total_subcarriers = carrier_config.n_size_grid * N_SC_PER_RB
 
-    # Initialize grid with channel values
-    grid = np.full((total_subcarriers, total_symbols), -1)  # -1 as placeholder
-
-    # Map each RE to its channel value
-    for re in carrier_config.resource_grid:
-        grid[re.subcarrier, re.symbol + re.slot * N_SYMBOLS_PER_SLOT] = re.channel_type.value
-
-    # Create colormap mapping each enum value to a color
-    colors = ['white'] * (max(ch.value for ch in ChannelType) + 1)  # Initialize with white
-    for ch_type in channel_colors.keys():  # Only use channels from the color map
+    # Create colormap from the colors
+    colors = ['white'] * (max(ch.value for ch in ChannelType) + 1)
+    for ch_type in channel_colors.keys():
         colors[ch_type.value] = channel_colors[ch_type]
-
     custom_cmap = ListedColormap(colors)
 
     fig, ax = plt.subplots(figsize=(22, 10))
-   
-    ax.imshow(grid, aspect='auto', interpolation='nearest', cmap=custom_cmap, origin='lower',
-              vmin=0, vmax=len(colors)-1)
+    
+    # Get channel types array from ResourceGrid
+    grid_values = np.array([[ch_type.value for ch_type in row] 
+                           for row in carrier_config.resource_grid.channel_types])
+    
+    ax.imshow(grid_values, aspect='auto', interpolation='nearest', 
+              cmap=custom_cmap, origin='lower', vmin=0, vmax=len(colors)-1)
 
     # Draw horizontal lines between RBs (every 12 subcarriers)
     for sc in range(0, total_subcarriers + 1, N_SC_PER_RB):
@@ -130,4 +126,4 @@ def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: 
     plt.subplots_adjust(right=0.85)
 
     plt.show()
-    return grid 
+    return grid_values 

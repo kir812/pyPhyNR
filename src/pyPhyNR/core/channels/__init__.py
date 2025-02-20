@@ -2,17 +2,7 @@
 5G NR Physical Channels and Signals
 """
 
-from dataclasses import dataclass
-from typing import List
-from ..channel_types import ChannelType
-from ..resources import ResourceAllocation
-
-@dataclass
-class PhysicalChannel:
-    """Base class for all physical channels"""
-    channel_type: ChannelType
-    allocations: List[ResourceAllocation]
-
+from ..resources import PhysicalChannel
 from .pdsch import PDSCH
 from .pdcch import PDCCH
 from .dmrs import DMRS
