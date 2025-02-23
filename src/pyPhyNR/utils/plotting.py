@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import ListedColormap
 from ..core.carrier import CarrierConfig
-from ..core.definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT, N_SUBFRAMES_PER_FRAME
+from ..core.definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
 from ..core.channel_types import ChannelType
-from ..core.resources import ResourceElement
 from matplotlib.patches import Patch
+from ..core.resources import ResourceGrid
 
 # Downlink channel colors
 DL_CHANNEL_COLORS = {
@@ -42,31 +42,23 @@ UL_CHANNEL_COLORS = {
     ChannelType.SRS: 'magenta'
 }
 
-def plot_grid_dl(carrier_config: CarrierConfig):
-    """
-    Plot downlink frame of the resource grid
-    
-    Args:
-        carrier_config: Carrier configuration
-    """
-    return _plot_frame(carrier_config, DL_CHANNEL_COLORS, "Downlink")
+def plot_grid_dl(carrier: CarrierConfig, grid: ResourceGrid):
+    """Plot downlink resource grid"""
+    return _plot_frame(carrier, grid, DL_CHANNEL_COLORS, "Downlink")
 
-def plot_grid_ul(carrier_config: CarrierConfig):
+def plot_grid_ul(grid: ResourceGrid):
     """
     Plot uplink frame of the resource grid
     
     Args:
-        carrier_config: Carrier configuration
+        grid: Resource grid to plot
     """
-    return _plot_frame(carrier_config, UL_CHANNEL_COLORS, "Uplink")
+    return _plot_frame(grid, UL_CHANNEL_COLORS, "Uplink")
 
-def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: str):
-    """Internal function for plotting resource grid"""
-    # Calculate grid dimensions
-    slots_per_subframe = carrier_config.numerology.slots_per_subframe
-    total_slots = N_SUBFRAMES_PER_FRAME * slots_per_subframe
-    total_symbols = total_slots * N_SYMBOLS_PER_SLOT
-    total_subcarriers = carrier_config.n_size_grid * N_SC_PER_RB
+def _plot_frame(carrier: CarrierConfig, grid: ResourceGrid, channel_colors: dict, direction: str):
+    """Internal plotting function"""
+    total_symbols = grid.n_symbols
+    total_subcarriers = grid.n_subcarriers
 
     # Create colormap from the colors
     colors = ['white'] * (max(ch.value for ch in ChannelType) + 1)
@@ -75,11 +67,11 @@ def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: 
     custom_cmap = ListedColormap(colors)
 
     fig, ax = plt.subplots(figsize=(22, 10))
-    
+
     # Get channel types array from ResourceGrid
     grid_values = np.array([[ch_type.value for ch_type in row] 
-                           for row in carrier_config.resource_grid.channel_types])
-    
+                           for row in grid.channel_types])
+
     ax.imshow(grid_values, aspect='auto', interpolation='nearest', 
               cmap=custom_cmap, origin='lower', vmin=0, vmax=len(colors)-1)
 
@@ -95,9 +87,9 @@ def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: 
 
     ax.set_title(
         f'5G NR Resource Grid\n'
-        f'μ={carrier_config.numerology.mu}, '
-        f'RB={carrier_config.n_size_grid} ({total_subcarriers} subcarriers), '
-        f'SCS={carrier_config.numerology.subcarrier_spacing}kHz'
+        f'μ={carrier.numerology.mu}, '
+        f'RB={carrier.n_resource_blocks} ({grid.n_subcarriers} subcarriers), '
+        f'SCS={carrier.subcarrier_spacing}kHz'
     )
 
     # Add labels
@@ -109,21 +101,17 @@ def _plot_frame(carrier_config: CarrierConfig, channel_colors: dict, direction: 
     ax.set_xticks(selected_symbols)
     ax.set_xticklabels(selected_symbols)
 
-    # Create legend patches only for channels in the color map
     legend_elements = [
         Patch(facecolor=channel_colors[ch_type], label=ch_type.name)
         for ch_type in channel_colors.keys()  # Only use channels defined in the color map
     ]
-    
-    # Add legend to the right of the plot
+
     ax.legend(handles=legend_elements, 
              bbox_to_anchor=(1.05, 1),
              loc='upper left',
              borderaxespad=0.)
-    
-    # Adjust layout to make room for legend
+
     plt.tight_layout()
     plt.subplots_adjust(right=0.85)
 
     plt.show()
-    return grid_values 

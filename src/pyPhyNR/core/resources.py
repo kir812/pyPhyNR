@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from .channel_types import ChannelType
 import numpy as np
 from .definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
+from .channels.pdsch import PDSCH
+from .numerology import NRNumerology
+from .channels.base import PhysicalChannel  # For type hints only
 
 @dataclass
 class ResourceElement:
@@ -10,21 +13,10 @@ class ResourceElement:
     data: complex = 0+0j
 
 @dataclass
-class PhysicalChannel:
-    """Base class for all physical channels"""
-    channel_type: ChannelType
-    start_rb: int
-    num_rb: int
-    start_symbol: int
-    num_symbols: int
-    slot: int
-    data: np.ndarray = field(init=False)
-
-@dataclass
 class ResourceGrid:
     """2D Resource Grid for 5G NR"""
-    n_subcarriers: int
-    n_symbols: int
+    n_subcarriers: int  # Y-axis
+    n_symbols: int  # X-axis
     grid: np.ndarray = field(init=False)  # Array of ResourceElements
 
     def __post_init__(self):
@@ -52,4 +44,12 @@ class ResourceGrid:
     @property
     def values(self):
         """Get array of complex values"""
-        return np.array([[re.data for re in row] for row in self.grid]) 
+        return np.array([[re.data for re in row] for row in self.grid])
+
+    def add_pdsch(self, pdsch: PDSCH):
+        """Add PDSCH to grid"""
+        for i, j in np.ndindex(pdsch.symbols.shape):
+            self.grid[pdsch.indices[0].start + i, 
+                     pdsch.indices[1].start + j].channel_type = ChannelType.PDSCH
+            self.grid[pdsch.indices[0].start + i,
+                     pdsch.indices[1].start + j].data = pdsch.symbols[i,j]

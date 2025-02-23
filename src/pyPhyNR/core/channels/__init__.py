@@ -5,11 +5,12 @@
 from ..resources import PhysicalChannel
 from .pdsch import PDSCH
 from .pdcch import PDCCH
-from .dmrs import DMRS
+from .dmrs import DL_DMRS, UL_DMRS
 
 __all__ = [
     'PhysicalChannel',
     'PDSCH',
     'PDCCH',
-    'DMRS'
+    'DL_DMRS',
+    'UL_DMRS'
 ] 
