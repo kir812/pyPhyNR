@@ -115,3 +115,32 @@ def _plot_frame(carrier: CarrierConfig, grid: ResourceGrid, channel_colors: dict
     plt.subplots_adjust(right=0.85)
 
     plt.show()
+
+def plot_constellation(*symbols, labels=None, title: str = "Constellation Diagram"):
+    """
+    Plot constellation diagram for multiple sets of complex values
+    
+    Args:
+        *symbols: One or more arrays of complex values
+        labels: List of labels for each symbol set
+        title: Plot title
+    """
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    if labels is None:
+        labels = [f"Channel {i+1}" for i in range(len(symbols))]
+    
+    colors = plt.cm.tab10(np.linspace(0, 1, len(symbols)))  # Get different colors
+    
+    for values, label, color in zip(symbols, labels, colors):
+        ax.scatter(np.real(values), np.imag(values), 
+                  alpha=0.5, label=label, color=color)
+    
+    ax.grid(True)
+    ax.axhline(y=0, color='k', linestyle='-', linewidth=0.5)
+    ax.axvline(x=0, color='k', linestyle='-', linewidth=0.5)
+    ax.set_title(title)
+    ax.set_xlabel('Real')
+    ax.set_ylabel('Imaginary')
+    ax.set_aspect('equal')
+    plt.show()

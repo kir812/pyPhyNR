@@ -5,6 +5,7 @@ Core 5G NR concepts and configurations
 from .channel_types import ChannelType
 from .channels import PhysicalChannel, PDSCH, PDCCH
 from .numerology import NRNumerology, get_numerology
+from .modulation import ModulationType
 from .definitions import (
     N_SC_PER_RB,
     N_SYMBOLS_PER_SLOT,
