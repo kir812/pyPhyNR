@@ -13,9 +13,9 @@ from ..core.resources import ResourceGrid
 
 # Downlink channel colors
 DL_CHANNEL_COLORS = {
-    ChannelType.EMPTY: 'blue',
+    ChannelType.EMPTY: 'white',
     # Downlink Channels
-    ChannelType.PDSCH: 'cyan',
+    ChannelType.PDSCH: 'blue',
     ChannelType.PDCCH: 'orange',
     ChannelType.PBCH: 'green',
     ChannelType.CORESET: 'lime',
@@ -31,9 +31,9 @@ DL_CHANNEL_COLORS = {
 
 # Uplink channel colors
 UL_CHANNEL_COLORS = {
-    ChannelType.EMPTY: 'blue',
+    ChannelType.EMPTY: 'white',
     # Uplink Channels
-    ChannelType.PUSCH: 'cyan',
+    ChannelType.PUSCH: 'blue',
     ChannelType.PUCCH: 'orange',
     ChannelType.PRACH: 'red',
     # Reference Signals
