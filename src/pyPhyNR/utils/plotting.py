@@ -144,3 +144,126 @@ def plot_constellation(*symbols, labels=None, title: str = "Constellation Diagra
     ax.set_ylabel('Imaginary')
     ax.set_aspect('equal')
     plt.show()
+
+
+# Waveform visualization functions
+def plot_time_domain(waveform: np.ndarray, carrier_config: CarrierConfig, title: str = "Time Domain Signal"):
+    """
+    Plot time domain representation of the waveform
+    
+    Args:
+        waveform: Complex IQ samples
+        carrier_config: Carrier configuration (contains sample rate)
+        title: Plot title
+    """
+    time_axis = np.arange(len(waveform)) / carrier_config.sample_rate * 1000  # Convert to ms
+    
+    plt.figure(figsize=(12, 8))
+
+    # Plot magnitude
+    plt.subplot(2, 1, 1)
+    plt.plot(time_axis, np.abs(waveform))
+    plt.title(f"{title} - Magnitude")
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Magnitude")
+    plt.grid(True)
+
+    # Plot phase
+    # plt.subplot(2, 1, 2)
+    # plt.plot(time_axis, np.angle(waveform, deg=True))
+    # plt.title(f"{title} - Phase")
+    # plt.xlabel("Time (ms)")
+    # plt.ylabel("Phase (degrees)")
+    # plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_frequency_domain(waveform: np.ndarray, carrier_config: CarrierConfig, title: str = "Frequency Domain"):
+    """
+    Plot frequency domain representation of the waveform
+    
+    Args:
+        waveform: Complex IQ samples
+        carrier_config: Carrier configuration (contains sample rate)
+        title: Plot title
+    """
+    # Apply windowing to reduce spectral leakage
+    window = np.hanning(len(waveform))
+    windowed_signal = waveform * window
+    
+    # FFT
+    fft_result = np.fft.fftshift(np.fft.fft(windowed_signal))
+    freq_axis = (np.fft.fftfreq(len(waveform), 1/carrier_config.sample_rate)) / 1e6  # Convert to MHz
+    
+    # Power spectral density
+    psd = np.abs(fft_result)**2
+    psd_db = 10 * np.log10(psd + 1e-12)  # Add small value to avoid log(0)
+    
+    plt.figure(figsize=(12, 6))
+    plt.plot(freq_axis, psd_db)
+    plt.title(f"{title} - Power Spectral Density")
+    plt.xlabel("Frequency (MHz)")
+    plt.ylabel("Power (dB)")
+    plt.grid(True)
+    plt.xlim(-carrier_config.sample_rate/2e6, carrier_config.sample_rate/2e6)  # Show full bandwidth
+    plt.ylim(-40, 60)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_waveform_summary(waveform: np.ndarray, grid: ResourceGrid, carrier_config: CarrierConfig):
+    """
+    Create a comprehensive summary plot of the waveform
+    
+    Args:
+        waveform: Complex IQ samples
+        grid: Resource grid
+        carrier_config: Carrier configuration (contains sample rate)
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    
+    # Time domain magnitude
+    time_axis = np.arange(len(waveform)) / carrier_config.sample_rate * 1000
+    axes[0, 0].plot(time_axis, np.abs(waveform))
+    axes[0, 0].set_title("Time Domain - Magnitude")
+    axes[0, 0].set_xlabel("Time (ms)")
+    axes[0, 0].set_ylabel("Magnitude")
+    axes[0, 0].grid(True)
+    
+    # Time domain phase
+    axes[0, 1].plot(time_axis, np.angle(waveform, deg=True))
+    axes[0, 1].set_title("Time Domain - Phase")
+    axes[0, 1].set_xlabel("Time (ms)")
+    axes[0, 1].set_ylabel("Phase (degrees)")
+    axes[0, 1].grid(True)
+    
+    # Frequency domain
+    window = np.hanning(len(waveform))
+    windowed_signal = waveform * window
+    fft_result = np.fft.fftshift(np.fft.fft(windowed_signal))
+    freq_axis = (np.fft.fftfreq(len(waveform), 1/carrier_config.sample_rate)) / 1e6
+    psd = np.abs(fft_result)**2
+    psd_db = 10 * np.log10(psd + 1e-12)
+    
+    axes[1, 0].plot(freq_axis, psd_db)
+    axes[1, 0].set_title("Frequency Domain - PSD")
+    axes[1, 0].set_xlabel("Frequency (MHz)")
+    axes[1, 0].set_ylabel("Power (dB)")
+    axes[1, 0].grid(True)
+    axes[1, 0].set_xlim(-carrier_config.sample_rate/2e6, carrier_config.sample_rate/2e6)
+    
+    # Resource grid spectrum (first slot)
+    slot_data = grid.values[:, :N_SYMBOLS_PER_SLOT]
+    avg_spectrum = np.mean(np.abs(slot_data), axis=1)
+    freq_axis_grid = np.arange(len(avg_spectrum)) * carrier_config.subcarrier_spacing / 1000
+    
+    axes[1, 1].plot(freq_axis_grid, 10 * np.log10(avg_spectrum + 1e-12))
+    axes[1, 1].set_title("Resource Grid Spectrum - Slot 0")
+    axes[1, 1].set_xlabel("Frequency (MHz)")
+    axes[1, 1].set_ylabel("Power (dB)")
+    axes[1, 1].grid(True)
+    
+    plt.tight_layout()
+    plt.show()

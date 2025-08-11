@@ -1,11 +1,33 @@
 """
-5G NR constants and configuration values from 3GPP TS 38.104
+5G NR definitions and constants
 """
 
-# Basic resource grid parameters
-N_SC_PER_RB = 12  # Number of subcarriers per resource block
+# Resource Block (RB) definitions
+N_SC_PER_RB = 12  # Number of subcarriers per RB
+
+# Slot and frame definitions
 N_SYMBOLS_PER_SLOT = 14  # Number of OFDM symbols per slot
-N_SUBFRAMES_PER_FRAME = 10  # Number of subframes per frame
+N_SLOTS_PER_FRAME = 20   # Number of slots per 10ms frame
+
+# Subcarrier spacing definitions (kHz)
+SCS_15 = 15
+SCS_30 = 30
+SCS_60 = 60
+SCS_120 = 120
+SCS_240 = 240
+
+# Bandwidth definitions (MHz)
+BW_5 = 5
+BW_10 = 10
+BW_15 = 15
+BW_20 = 20
+BW_25 = 25
+BW_30 = 30
+BW_40 = 40
+BW_50 = 50
+BW_60 = 60
+BW_80 = 80
+BW_100 = 100
 
 # Frequency Range definitions (in Hz)
 FR1_FREQ_RANGE = (410e6, 7125e6)  # 410 MHz - 7.125 GHz

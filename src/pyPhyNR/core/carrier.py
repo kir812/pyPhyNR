@@ -16,6 +16,9 @@ class CarrierConfig:
     n_resource_blocks: int
     cyclic_prefix: str = 'normal'
     n_cell_id: int = 0
+    sample_rate: float = 122880000.0
+    tdd_pattern: list[int] = None
+    special_slot_pattern: list[int] = None
 
     def __post_init__(self):
         if self.cyclic_prefix not in ['normal', 'extended']:
@@ -46,3 +49,16 @@ class CarrierConfig:
             n_subcarriers=total_subcarriers,
             n_symbols=total_symbols,
         )
+
+    def set_sample_rate(self, sample_rate: float):
+        """Set sample rate for the carrier"""
+        self.sample_rate = sample_rate
+
+    def set_tdd_pattern(self, tdd_pattern: list[int]):
+        """Set TDD pattern for the carrier"""
+        self.tdd_pattern = tdd_pattern
+
+    def set_special_slot_pattern(self, special_slot_pattern: list[int]):
+        """Set special slot pattern for the carrier"""
+        self.special_slot_pattern = special_slot_pattern
+

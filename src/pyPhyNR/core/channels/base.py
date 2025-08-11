@@ -2,8 +2,10 @@
 
 from dataclasses import dataclass, field
 import numpy as np
+from typing import Optional
 from ..channel_types import ChannelType
 from ..definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
+from ..signals.reference import ReferenceSignal
 
 @dataclass
 class PhysicalChannel:
@@ -14,6 +16,7 @@ class PhysicalChannel:
     start_symbol: int
     num_symbols: int
     slot_pattern: list = field(default_factory=list)
+    reference_signal: Optional[ReferenceSignal] = None
     data: np.ndarray = field(init=False)
 
     def __post_init__(self):
@@ -38,4 +41,10 @@ class PhysicalChannel:
         for slot in self.slot_pattern:
             start_sym = self.start_symbol + slot * N_SYMBOLS_PER_SLOT
             end_sym = start_sym + self.num_symbols
-            self.time_indices[slot] = range(start_sym, end_sym) 
+            self.time_indices[slot] = range(start_sym, end_sym)
+
+    def _generate_reference_signal(self) -> np.ndarray:
+        """Generate reference signal if present"""
+        if self.reference_signal:
+            return self.reference_signal.generate_symbols(self.num_rb, self.num_symbols)
+        return None 

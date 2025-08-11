@@ -10,12 +10,12 @@ from .modulation import ModulationType
 from .definitions import (
     N_SC_PER_RB,
     N_SYMBOLS_PER_SLOT,
-    N_SUBFRAMES_PER_FRAME,
     get_rb_count,
     get_frequency_range
 )
 from .carrier import CarrierConfig
 from .resources import ResourceElement
+from .waveform import WaveformGenerator
 
 __all__ = [
     'ChannelType',
@@ -30,5 +30,6 @@ __all__ = [
     'N_SC_PER_RB',
     'N_SYMBOLS_PER_SLOT',
     'get_rb_count',
-    'get_frequency_range'
+    'get_frequency_range',
+    'WaveformGenerator'
 ]
