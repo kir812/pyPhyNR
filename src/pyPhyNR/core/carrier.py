@@ -17,6 +17,7 @@ class CarrierConfig:
     cyclic_prefix: str = 'normal'
     n_cell_id: int = 0
     sample_rate: float = 122880000.0
+    fft_size: int = None  # None means use standard calculation
     tdd_pattern: list[int] = None
     special_slot_pattern: list[int] = None
 
@@ -53,6 +54,12 @@ class CarrierConfig:
     def set_sample_rate(self, sample_rate: float):
         """Set sample rate for the carrier"""
         self.sample_rate = sample_rate
+
+    def set_fft_size(self, fft_size: int):
+        """Set custom FFT size for the carrier (None for standard calculation)"""
+        if fft_size is not None and fft_size <= 0:
+            raise ValueError("FFT size must be positive or None")
+        self.fft_size = fft_size
 
     def set_tdd_pattern(self, tdd_pattern: list[int]):
         """Set TDD pattern for the carrier"""

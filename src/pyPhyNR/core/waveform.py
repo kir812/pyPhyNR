@@ -20,14 +20,7 @@ class WaveformGenerator:
         pass
 
     def _get_ofdm_params(self, carrier_config: CarrierConfig) -> OfdmParams:
-        """Calculate standard 3GPP OFDM parameters for this carrier.
-
-        The 3GPP-defined sampling rate is derived from the number of
-        configured resource blocks and numerology. If the user supplies a
-        different ``CarrierConfig.sample_rate`` the waveform will later be
-        resampled, but the OFDM parameters are always based on the standard
-        rate to preserve the requested sub-carrier spacing.
-
+        """Calculate 3GPP OFDM parameters for this carrier.
         Args
         ----
         carrier_config: Carrier configuration
@@ -35,18 +28,16 @@ class WaveformGenerator:
         Returns
         -------
         OfdmParams
-            Calculated OFDM parameters using the standard sampling rate.
+            Calculated OFDM parameters using the user's sample rate.
         """
-        scs_hz = carrier_config.subcarrier_spacing * 1000
-        n_subcarriers = carrier_config.n_resource_blocks * N_SC_PER_RB
-        # FFT size defined as next power-of-two >= occupied subcarriers
-        n_fft = 1 << (n_subcarriers - 1).bit_length()
-        standard_fs = scs_hz * n_fft
-
+        # Use the user's sample rate directly
+        user_fs = carrier_config.sample_rate
+        
         return calculate_ofdm_params(
-            fs_hz=standard_fs,
+            fs_hz=user_fs,
             mu=carrier_config.numerology.mu,
             cp_type="normal",  # We can make this configurable later
+            custom_fft_size=carrier_config.fft_size
         )
 
     def generate_ofdm_symbol(self, data: np.ndarray, ofdm_params: OfdmParams, symbol_idx: int) -> np.ndarray:
@@ -120,7 +111,7 @@ class WaveformGenerator:
         Returns:
             IQ samples for the entire frame
         """
-        # Get OFDM parameters at the 3GPP-defined sampling rate
+        # Get OFDM parameters using the user's sample rate
         ofdm_params = self._get_ofdm_params(carrier_config)
 
         # Calculate total slots
@@ -135,11 +126,6 @@ class WaveformGenerator:
             frame_waveform.append(slot_waveform)
         
         waveform = np.concatenate(frame_waveform)
-
-        # Resample if user-selected rate differs from standard rate
-        if abs(ofdm_params.fs - carrier_config.sample_rate) > 1:
-            from ..utils import resample_waveform
-            waveform = resample_waveform(waveform, ofdm_params.fs, carrier_config.sample_rate)
 
         return waveform
 
@@ -160,16 +146,9 @@ class WaveformGenerator:
         total_slots = 10 * slots_per_subframe
         total_symbols = total_slots * N_SYMBOLS_PER_SLOT
 
-        # Calculate total samples at the standard rate
+        # Calculate total samples
         samples_per_symbol = [ofdm_params.N_useful + cp for cp in ofdm_params.cp_per_symbol]
         total_samples = sum(samples_per_symbol) * total_slots
-
-        # Adjust sample count if resampling is needed
-        if abs(ofdm_params.fs - carrier_config.sample_rate) > 1:
-            total_samples = int(round(total_samples * carrier_config.sample_rate / ofdm_params.fs))
-            sample_rate = carrier_config.sample_rate
-        else:
-            sample_rate = ofdm_params.fs
 
         return {
             'fft_size': ofdm_params.N_fft,
@@ -181,8 +160,8 @@ class WaveformGenerator:
             'total_slots': total_slots,
             'total_symbols': total_symbols,
             'total_samples': total_samples,
-            'subcarrier_spacing': ofdm_params.scs_hz,
-            'sample_rate': sample_rate,
+            'subcarrier_spacing': ofdm_params.fs/ofdm_params.N_fft,
+            'sample_rate': ofdm_params.fs,
             'slot_duration': ofdm_params.slot_duration_s,
             'num_rb': carrier_config.n_resource_blocks,
             'numerology': ofdm_params.mu

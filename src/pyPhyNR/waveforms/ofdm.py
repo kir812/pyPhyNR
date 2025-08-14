@@ -26,7 +26,7 @@ def pick_fft(n_useful: int) -> int:
         n <<= 1
     return n
 
-def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","extended"]="normal") -> OfdmParams:
+def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","extended"]="normal", custom_fft_size: int = None) -> OfdmParams:
     """
     Calculate 3GPP-compliant OFDM parameters with intelligent padding distribution
     
@@ -34,6 +34,7 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
         fs_hz: Sampling rate in Hz
         mu: Numerology (0-4)
         cp_type: CP type ("normal" or "extended")
+        custom_fft_size: Optional custom FFT size (if None, uses standard calculation)
         
     Returns:
         OfdmParams object with calculated parameters
@@ -48,6 +49,15 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
         raise ValueError(f"N_useful not integer ({n_useful_f:.6f}). Consider adjusting fs.")
     N_useful = int(round(n_useful_f))
 
+    # Use custom FFT size if provided, otherwise use standard calculation
+    if custom_fft_size is not None:
+        N_fft = custom_fft_size
+        # Validate that custom FFT size is >= N_useful
+        if N_fft < N_useful:
+            raise ValueError(f"Custom FFT size ({N_fft}) must be >= N_useful ({N_useful})")
+    else:
+        N_fft = pick_fft(N_useful)
+
     if cp_type == "extended":
         if mu != 2:
             raise ValueError("Extended CP is defined for mu=2 in NR.")
@@ -55,7 +65,6 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
         # 38.211 ratio: N_CP,E = 512/2048 of useful symbol (for mu=2)
         cp_e = round(N_useful * (512/2048))
         cp_per_symbol = [cp_e] * symbols_per_slot
-        N_fft = pick_fft(N_useful)
         return OfdmParams(fs_hz, mu, scs_hz, N_useful, N_fft, cp_e, cp_e,
                           symbols_per_slot, 1e-3/(2**mu), cp_per_symbol)
 
@@ -97,6 +106,25 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
             sym_samples[i] -= 1
             k += 1
 
-    N_fft = pick_fft(N_useful)
     return OfdmParams(fs_hz, mu, scs_hz, N_useful, N_fft, cp_short, cp_long,
-                      symbols_per_slot, 1e-3/(2**mu), cp_per_symbol) 
+                      symbols_per_slot, 1e-3/(2**mu), cp_per_symbol)
+
+
+if __name__ == "__main__":
+    # Test with standard FFT size
+    print("Standard FFT size:")
+    ofdm_params = calculate_ofdm_params(11.52e6, 1)
+    print(f"  N_useful: {ofdm_params.N_useful}")
+    print(f"  N_fft: {ofdm_params.N_fft}")
+
+    # Test with custom FFT size
+    print("\nCustom FFT size (384):")
+    ofdm_params_custom = calculate_ofdm_params(11.52e6, 1, custom_fft_size=384)
+    print(f"  N_useful: {ofdm_params_custom.N_useful}")
+    print(f"  N_fft: {ofdm_params_custom.N_fft}")
+
+    # Test with None (should use standard)
+    print("\nCustom FFT size (None - should use standard):")
+    ofdm_params_none = calculate_ofdm_params(11.52e6, 1, custom_fft_size=None)
+    print(f"  N_useful: {ofdm_params_none.N_useful}")
+    print(f"  N_fft: {ofdm_params_none.N_fft}")

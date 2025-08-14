@@ -5,5 +5,4 @@ from .plotting import (
     plot_time_domain,
     plot_frequency_domain,
 )
-from .resample import resample_waveform
 
