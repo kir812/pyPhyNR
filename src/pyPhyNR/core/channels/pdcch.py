@@ -7,7 +7,7 @@ import numpy as np
 from typing import List
 from ..channel_types import ChannelType
 from .base import PhysicalChannel
-from ..signals.reference import DMRS
+from .dmrs import PDSCH_DMRS
 from ..modulation import ModulationType, generate_random_symbols
 from ..definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
 
@@ -29,7 +29,8 @@ class PDCCH(PhysicalChannel):
                  start_symbol: int,
                  num_symbols: int,
                  slot_pattern: list,
-                 modulation: ModulationType = ModulationType.QPSK):
+                 modulation: ModulationType = ModulationType.QPSK,
+                 cell_id: int = 0):
         
         super().__init__(
             channel_type=ChannelType.PDCCH,
@@ -38,22 +39,36 @@ class PDCCH(PhysicalChannel):
             start_symbol=start_symbol,
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
-            reference_signal=DMRS(positions=DMRS_POSITIONS)
+            reference_signal=PDSCH_DMRS(positions=DMRS_POSITIONS)
         )
         
         self.modulation = modulation
+        self.cell_id = cell_id
         
         # Generate data
         self._generate_data()
     
     def _generate_data(self):
-        """Generate PDCCH data"""
+        """Generate PDCCH data with DMRS integration"""
         n_sc = self.num_rb * N_SC_PER_RB
         # Initialize full data array
         self.data = np.zeros((n_sc, self.num_symbols), dtype=complex)
         
         # Generate and place DMRS if present
-        dmrs_data = self._generate_reference_signal()
+        if self.reference_signal:
+            # Calculate slot and symbol indices for DMRS generation
+            slot_idx = self.slot_pattern[0]  # Use first slot for now
+            symbol_idx = self.start_symbol
+            
+            dmrs_data = self.reference_signal.generate_symbols(
+                num_rb=self.num_rb,
+                num_symbols=self.num_symbols,
+                cell_id=self.cell_id,
+                slot_idx=slot_idx,
+                symbol_idx=symbol_idx
+            )
+        else:
+            dmrs_data = None
         
         # Generate and place PDCCH data
         n_data = self.num_rb * len(DATA_POSITIONS)
@@ -64,15 +79,18 @@ class PDCCH(PhysicalChannel):
             rb_start = rb * N_SC_PER_RB
             
             # Place DMRS
-            if dmrs_data is not None:
+            if dmrs_data is not None and self.reference_signal:
                 for i, pos in enumerate(self.reference_signal.positions):
                     dmrs_idx = rb * len(self.reference_signal.positions) + i
                     for sym in range(self.num_symbols):
                         self.data[rb_start + pos, sym] = dmrs_data[dmrs_idx, sym]
             
-            # Place PDCCH data
-            for i, pos in enumerate(DATA_POSITIONS):
-                data_idx = rb * len(DATA_POSITIONS) + i
+            # Place PDCCH data (excluding DMRS positions)
+            dmrs_positions = set(self.reference_signal.positions) if self.reference_signal else set()
+            data_positions = [pos for pos in range(N_SC_PER_RB) if pos not in dmrs_positions]
+            
+            for i, pos in enumerate(data_positions):
+                data_idx = rb * len(data_positions) + i
                 for sym in range(self.num_symbols):
                     self.data[rb_start + pos, sym] = pdcch_data[data_idx, sym]
 

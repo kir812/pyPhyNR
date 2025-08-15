@@ -5,7 +5,7 @@ import numpy as np
 from typing import Optional
 from ..channel_types import ChannelType
 from ..definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
-from ..signals.reference import ReferenceSignal
+from .dmrs import ReferenceSignal
 
 @dataclass
 class PhysicalChannel:
