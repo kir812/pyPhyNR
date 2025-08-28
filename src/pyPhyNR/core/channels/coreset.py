@@ -29,7 +29,10 @@ class CORESET(PhysicalChannel):
                  rb_offset: int = 0,
                  rbg_bitmap: List[int] = None,
                  reg_mapping_type: REGMappingType = REGMappingType.NON_INTERLEAVED,
-                 reg_bundle_size: int = 6):
+                 reg_bundle_size: int = 6,
+                 power: float = 0.0,
+                 rnti: int = 0,
+                 payload_pattern: str = "0"):
 
         if num_rb % 6 != 0:
             raise ValueError("CORESET must be configured with a number of RBs that is a multiple of 6")
@@ -46,7 +49,10 @@ class CORESET(PhysicalChannel):
             num_rb=num_rb,
             start_symbol=start_symbol,
             num_symbols=num_symbols,
-            slot_pattern=slot_pattern
+            slot_pattern=slot_pattern,
+            power=power,
+            rnti=rnti,
+            payload_pattern=payload_pattern
         )
 
         self._validate_params()

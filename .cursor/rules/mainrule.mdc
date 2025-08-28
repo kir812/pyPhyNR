@@ -1,0 +1,58 @@
+# Main Rules for pyPhyNR Project
+
+## General Development Guidelines
+- Always use MATLAB 5G NR toolbox documentation as a reference
+- Use *.m files in this project as a reference
+- 3GPP requirements for 5G NR is our Bible for this project
+- Frontend is in form of Jupyter notebooks
+- Ask clarifying questions before coding
+- Don't create test scripts unless explicitly requested
+
+## Signal Generation Guidelines
+1. Reference Implementation:
+   - Use NR5G.cs as reference for allocation patterns
+   - Match signal parameters exactly with reference (RBs, symbols, slots)
+   - Pay attention to numerology and bandwidth configurations
+
+2. Channel Configuration:
+   - SSB (Sync Signal Block):
+     - Required for self-synchronizing signals
+     - Contains PSS, SSS, PBCH
+     - Fixed patterns and positions
+     - Used by analyzers for initial sync
+   
+   - CORESET/PDCCH:
+     - Used for scheduling and control
+     - Must be multiple of 6 RBs
+     - Can overlap with PDSCH in frequency but not time
+     - Requires allocation file for analyzer sync
+
+   - PDSCH:
+     - Can use all available RBs in non-CORESET slots
+     - Adjust allocation around CORESET/SSB
+     - Support both Type A and B DMRS
+
+3. TDD/FDD Considerations:
+   - TDD requires specific slot patterns (e.g., DDDSUUUUUU)
+   - Special slots need different symbol counts
+   - Both TDD/FDD can have SSB and CORESET
+   - Channel placement depends on UL/DL slot configuration
+
+4. Spectrum Analyzer Requirements:
+   - SSB-only signals: Can self-sync
+   - CORESET/PDSCH signals: Need allocation file
+   - Both signal types are valid for demodulation
+   - Allocation file must match signal configuration exactly
+
+5. Resource Grid Rules:
+   - Avoid gaps in PDSCH allocation
+   - Handle CORESET overlap correctly
+   - Account for special slot configurations
+   - Properly configure DMRS positions
+
+## Implementation Notes
+- Use NRSignalBuilder for high-level signal creation
+- Configure carrier parameters explicitly when needed
+- Handle TDD patterns through slot_pattern lists
+- Validate RB counts and symbol ranges
+- Consider DMRS configurations for each channel

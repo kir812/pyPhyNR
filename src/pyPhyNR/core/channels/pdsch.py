@@ -13,7 +13,8 @@ class PDSCH(PhysicalChannel):
     """Physical Downlink Shared Channel"""
     def __init__(self, start_rb: int, num_rb: int, start_symbol: int, num_symbols: int, 
                  slot_pattern: list[int], modulation: ModulationType = ModulationType.QPSK,
-                 dmrs_positions: list[int] = None, cell_id: int = 0):
+                 dmrs_positions: list[int] = None, cell_id: int = 0, power: float = 0.0,
+                 rnti: int = 0, payload_pattern: str = "0"):
         super().__init__(
             channel_type=ChannelType.PDSCH,
             start_rb=start_rb,
@@ -21,7 +22,10 @@ class PDSCH(PhysicalChannel):
             start_symbol=start_symbol,
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
-            reference_signal=PDSCH_DMRS(positions=dmrs_positions)
+            reference_signal=PDSCH_DMRS(positions=dmrs_positions),
+            power=power,
+            rnti=rnti,
+            payload_pattern=payload_pattern
         )
         self.modulation = modulation
         self.cell_id = cell_id

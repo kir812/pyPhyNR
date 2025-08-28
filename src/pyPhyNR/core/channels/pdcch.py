@@ -30,7 +30,10 @@ class PDCCH(PhysicalChannel):
                  num_symbols: int,
                  slot_pattern: list,
                  modulation: ModulationType = ModulationType.QPSK,
-                 cell_id: int = 0):
+                 cell_id: int = 0,
+                 power: float = 0.0,
+                 rnti: int = 0,
+                 payload_pattern: str = "0"):
         
         super().__init__(
             channel_type=ChannelType.PDCCH,
@@ -39,7 +42,10 @@ class PDCCH(PhysicalChannel):
             start_symbol=start_symbol,
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
-            reference_signal=PDSCH_DMRS(positions=DMRS_POSITIONS)
+            reference_signal=PDSCH_DMRS(positions=DMRS_POSITIONS),
+            power=power,
+            rnti=rnti,
+            payload_pattern=payload_pattern
         )
         
         self.modulation = modulation

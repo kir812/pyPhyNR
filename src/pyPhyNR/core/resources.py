@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from .channel_types import ChannelType
 import numpy as np
 from .channels.base import PhysicalChannel
+from .channels.ssblock import SSBlock
 
 @dataclass
 class ResourceElement:
@@ -11,7 +12,20 @@ class ResourceElement:
     @property
     def channel_type(self) -> ChannelType:
         """Get channel type of this RE"""
-        return self.channel.channel_type if self.channel else ChannelType.EMPTY
+        if not self.channel:
+            return ChannelType.EMPTY
+            
+        # Check if this RE is a DMRS position
+        if isinstance(self.channel, SSBlock):
+            # For SSBlock, check the internal bitmap
+            sc = self.re_idx
+            sym = self.sym_idx
+            if self.channel.re_bitmap[sc, sym] == 3:  # 3 = PBCH DMRS in SSBlock
+                return ChannelType.DL_DMRS
+        elif self.channel.reference_signal and self.re_idx % 12 in self.channel.reference_signal.positions:
+            return ChannelType.DL_DMRS
+            
+        return self.channel.channel_type
     
     @property
     def data(self) -> complex:

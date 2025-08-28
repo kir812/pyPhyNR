@@ -17,6 +17,9 @@ class PhysicalChannel:
     num_symbols: int
     slot_pattern: list = field(default_factory=list)
     reference_signal: Optional[ReferenceSignal] = None
+    power: float = 0.0  # Power scaling in dB
+    rnti: int = 0  # Radio Network Temporary Identifier
+    payload_pattern: str = "0"  # Payload pattern
     data: np.ndarray = field(init=False)
 
     def __post_init__(self):
@@ -47,4 +50,15 @@ class PhysicalChannel:
         """Generate reference signal if present"""
         if self.reference_signal:
             return self.reference_signal.generate_symbols(self.num_rb, self.num_symbols)
-        return None 
+        return None
+        
+    def apply_power_scaling(self):
+        """Apply power scaling to channel data"""
+        if self.power != 0.0:
+            self.data *= 10**(self.power/20)  # Convert dB to linear scale
+            
+    def apply_scrambling(self):
+        """Apply RNTI-based scrambling if RNTI is non-zero"""
+        if self.rnti != 0:
+            # TODO: Implement RNTI-based scrambling
+            pass
