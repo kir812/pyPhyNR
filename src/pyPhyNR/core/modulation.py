@@ -48,15 +48,14 @@ def generate_random_symbols(n_sc: int, n_symbols: int, modulation: ModulationTyp
     total_symbols = n_sc * n_symbols
     
     if modulation == ModulationType.QPSK:
-        # QPSK: Generate random integers 0-3, then extract bits like MATLAB bitget
+        # QPSK: Generate random integers 0-3, then extract bits exactly like reference
         random_ints = np.random.randint(0, 4, total_symbols)
         symbols = np.zeros(total_symbols, dtype=complex)
         for i, val in enumerate(random_ints):
-            # Extract bits like MATLAB bitget: bitget(x,1) is LSB, bitget(x,2) is next bit
-            b1 = (val >> 0) & 1  # bitget(x,1) - LSB
-            b2 = (val >> 1) & 1  # bitget(x,2) - next bit
-            # Note: MATLAB reference has swapped I/Q mapping for QPSK
-            symbols[i] = (1/np.sqrt(2)) * ((1 - 2*b2) + 1j * (1 - 2*b1))
+            # Extract bits exactly like reference: b1 = second bit, b0 = first bit
+            b1 = (val >> 1) & 1  # Second bit (MATLAB bitget(x,2))
+            b0 = val & 1         # First bit (MATLAB bitget(x,1))
+            symbols[i] = (1/np.sqrt(2)) * ((1 - 2*b1) + 1j*(1 - 2*b0))
     
     elif modulation == ModulationType.QAM16:
         # 16QAM: Generate random integers 0-15, then extract bits like MATLAB bitget

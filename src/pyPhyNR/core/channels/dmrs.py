@@ -119,9 +119,10 @@ class PDSCH_DMRS(ReferenceSignal):
         # Generate Gold sequence - always generate full length
         c = generate_gold_sequence(c_init)
         
-        # Map to QPSK symbols - take only what we need
-        n_sc = num_rb * 6  # 6 DMRS REs per RB (every other subcarrier)
-        dmrs_symbols = map_to_qpsk(c, n_sc)
+        # Map to QPSK symbols - generate exactly like reference: NoDMRSRE = 3276//2 = 1638
+        # Reference generates fixed length regardless of actual RB count
+        NoDMRSRE = 3276 // 2  # Max number of DMRS REs in one symbol
+        dmrs_symbols = map_to_qpsk(c, NoDMRSRE)
         
         # Return as column vector (n_sc, 1)
         return dmrs_symbols.reshape(-1, 1)
