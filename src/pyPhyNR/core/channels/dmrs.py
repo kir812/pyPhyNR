@@ -7,69 +7,58 @@ import numpy as np
 from typing import List
 from ..channel_types import ChannelType
 from ..modulation import ModulationType, generate_random_symbols
-from ..definitions import MAX_DMRS_RE_FR1, MAX_DMRS_RE_FR2_1, MAX_DMRS_RE_FR2_2
+from ..definitions import MAX_DMRS_RE
 
-def generate_gold_sequence(c_init: int, length: int) -> np.ndarray:
+def generate_gold_sequence(c_init: int) -> np.ndarray:
     """
-    Generate Gold sequence based on 31-bit LFSR as per TS 38.211
+    Generate Gold sequence
     
     Args:
         c_init: 31-bit initialization value
-        length: Length of sequence to generate
         
     Returns:
         Binary sequence (0s and 1s)
     """
-    # Initialize LFSR states
-    x1 = np.zeros(31, dtype=int)
-    x1[0] = 1  # First LFSR: x1(0) = 1, x1(n) = 0 for n = 1, 2, ..., 30
+    # Pre-allocate arrays for full length
+    MPN = (2**16) - 1
+    x1 = np.zeros(MPN + 31, dtype=int)
+    x2 = np.zeros(MPN + 31, dtype=int)
     
-    x2 = np.zeros(31, dtype=int)
-    # Second LFSR: initialize with c_init
-    for i in range(31):
-        x2[i] = (c_init >> i) & 1
+    # Initialize x1 and x2
+    x1[:31] = np.array([1] + [0]*30)  # First bit 1, rest 0
+    x2[:31] = np.array([(c_init >> ii) & 1 for ii in range(31)])
     
-    # Generate sequence with Nc = 1600 offset as per TS 38.211
-    Nc = 1600
-    total_length = Nc + length
+    # Generate sequences using array indexing
+    for n in range(MPN):
+        x1[n + 31] = (x1[n + 3] + x1[n]) % 2
+        x2[n + 31] = (x2[n + 3] + x2[n + 2] + x2[n + 1] + x2[n]) % 2
     
-    # Generate x1 sequence: x1(n+31) = x1(n+3) + x1(n)
-    for n in range(31, total_length):
-        x1_new = (x1[n-28] + x1[n-31]) % 2
-        x1 = np.append(x1, x1_new)
+    # Generate c sequence with NC offset using vectorized operation
+    NC = 1600
+    c = (x1[NC:MPN] + x2[NC:MPN]) % 2
     
-    # Generate x2 sequence: x2(n+31) = x2(n+3) + x2(n+2) + x2(n+1) + x2(n)
-    for n in range(31, total_length):
-        x2_new = (x2[n-28] + x2[n-29] + x2[n-30] + x2[n-31]) % 2
-        x2 = np.append(x2, x2_new)
-    
-    # Gold sequence: c(n) = (x1(n+Nc) + x2(n+Nc)) mod 2
-    gold_seq = (x1[Nc:Nc+length] + x2[Nc:Nc+length]) % 2
-    
-    return gold_seq
+    return c
 
-def map_to_qpsk(binary_seq: np.ndarray) -> np.ndarray:
+def map_to_qpsk(c: np.ndarray, n_symbols: int) -> np.ndarray:
     """
-    Map binary sequence to QPSK symbols as per TS 38.211
+    Map binary sequence to QPSK symbols
     
     Args:
-        binary_seq: Binary sequence (0s and 1s)
+        c: Binary sequence (0s and 1s)
+        n_symbols: Number of QPSK symbols to generate
         
     Returns:
         Complex QPSK symbols
     """
-    # Ensure even length
-    if len(binary_seq) % 2 != 0:
-        raise ValueError("Binary sequence length must be even for QPSK mapping")
+    # Extract even and odd indices for all symbols at once
+    even_bits = c[0:2*n_symbols:2]  # c[0], c[2], c[4], ...
+    odd_bits = c[1:2*n_symbols:2]   # c[1], c[3], c[5], ...
     
-    # Split into m1 and m2
-    m1 = binary_seq[::2]  # Even indices
-    m2 = binary_seq[1::2]  # Odd indices
+    # Vectorized computation matching MATLAB's formula
+    real_part = (1 - 2*even_bits) / np.sqrt(2)
+    imag_part = (1 - 2*odd_bits) / np.sqrt(2)
     
-    # QPSK mapping: 1/sqrt(2) * (1-2*m1 + j*(1-2*m2))
-    qpsk_symbols = (1/np.sqrt(2)) * ((1 - 2*m1) + 1j * (1 - 2*m2))
-    
-    return qpsk_symbols
+    return real_part + 1j*imag_part
 
 @dataclass
 class ReferenceSignal:
@@ -107,7 +96,7 @@ class PDSCH_DMRS(ReferenceSignal):
     def generate_symbols(self, num_rb: int, num_symbols: int, 
                         cell_id: int, slot_idx: int, symbol_idx: int) -> np.ndarray:
         """
-        Generate PDSCH DMRS symbols as per TS 38.211 Section 7.4.1.1.1
+        Generate PDSCH DMRS symbols exactly matching MATLAB reference
         
         Args:
             num_rb: Number of resource blocks
@@ -119,26 +108,19 @@ class PDSCH_DMRS(ReferenceSignal):
         Returns:
             Complex DMRS symbols
         """
-        # Use FR1 maximum for now (TODO: make this configurable based on frequency range)
-        MAX_DMRS_RE = MAX_DMRS_RE_FR1  # 1638 REs for FR1
+        # Calculate c_init exactly as MATLAB
+        c_init = ((2**17) * (14*slot_idx + symbol_idx + 1) * 
+                  (2*cell_id + 1) + 2*cell_id) % (2**31)
         
-        # PDSCH DMRS initialization formula from TS 38.211
-        c_init = (2**17 * (14 * slot_idx + symbol_idx + 1) * (2 * cell_id + 1) + 2 * cell_id) % (2**31)
+        # Generate Gold sequence - always generate full length
+        c = generate_gold_sequence(c_init)
         
-        # Generate Gold sequence for maximum possible length
-        total_binary_symbols = MAX_DMRS_RE * 2  # *2 for QPSK mapping
-        binary_seq = generate_gold_sequence(c_init, total_binary_symbols)
-        
-        # Map to QPSK symbols
-        qpsk_symbols = map_to_qpsk(binary_seq)
-        
-        # Take only what we need for our bandwidth
-        n_sc_per_rb = 6  # 12 subcarriers / 2 (every other subcarrier)
-        n_sc = num_rb * n_sc_per_rb
-        dmrs_symbols = qpsk_symbols[:n_sc]
+        # Map to QPSK symbols - take only what we need
+        n_sc = num_rb * 6  # 6 DMRS REs per RB (every other subcarrier)
+        dmrs_symbols = map_to_qpsk(c, n_sc)
         
         # Return as column vector (n_sc, 1)
-        return dmrs_symbols.reshape(n_sc, 1)
+        return dmrs_symbols.reshape(-1, 1)
 
 @dataclass
 class PBCH_DMRS(ReferenceSignal):

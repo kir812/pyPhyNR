@@ -12,3 +12,4 @@ class REMapping:
     symbol: int      # Absolute symbol index
     data: complex    # Complex data value
     channel_type: ChannelType  # Type of channel occupying this RE
+

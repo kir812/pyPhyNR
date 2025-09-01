@@ -5,15 +5,25 @@
 # Resource Block (RB) definitions
 N_SC_PER_RB = 12  # Number of subcarriers per RB
 
+# OFDM and CP parameters from 3GPP TS 38.211
+BASE_SCS = 15_000  # 15 kHz base subcarrier spacing
+BASE_FFT = 4096    # Base FFT size
+TC_SCALE = 32      # Tc = 1/(Δf_ref * N_f_ref) where Δf_ref = 15kHz * 32
+K_SCALE = 64       # k = tc * 64 (scaling factor)
+
+# Normal CP lengths from 3GPP (ratio to FFT size):
+# - First symbol: 160/2048 ≈ 7.81%
+# - Other symbols: 144/2048 ≈ 7.03%
+CP_RATIO_FIRST = 160/2048  # First symbol in slot
+CP_RATIO_OTHER = 144/2048  # Other symbols
+
 # Maximum carrier configurations
 MAX_PRB_FR1 = 273  # Maximum PRBs in FR1 (100 MHz at 15kHz SCS)
 MAX_PRB_FR2_1 = 264  # Maximum PRBs in FR2-1 (400 MHz at 120kHz SCS)
 MAX_PRB_FR2_2 = 1320  # Maximum PRBs in FR2-2 (2000 MHz at 120kHz SCS)
 
-# Maximum DMRS REs per symbol (based on max carrier bandwidth)
-MAX_DMRS_RE_FR1 = (MAX_PRB_FR1 * N_SC_PER_RB) // 2  # Every other subcarrier
-MAX_DMRS_RE_FR2_1 = (MAX_PRB_FR2_1 * N_SC_PER_RB) // 2
-MAX_DMRS_RE_FR2_2 = (MAX_PRB_FR2_2 * N_SC_PER_RB) // 2
+# Maximum DMRS REs per symbol (from MATLAB reference)
+MAX_DMRS_RE = 3276 // 2  # 1638 REs (matches MATLAB NoDMRSRE)
 
 # Slot and frame definitions
 N_SYMBOLS_PER_SLOT = 14  # Number of OFDM symbols per slot
