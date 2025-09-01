@@ -34,55 +34,44 @@ class PDSCH(PhysicalChannel):
         self._generate_data()
 
     def _generate_data(self):
-        """Generate PDSCH data with DMRS integration"""
+        """Generate PDSCH data with DMRS integration exactly matching MATLAB reference"""
         n_sc = self.num_rb * N_SC_PER_RB
+        
         # Initialize data and channel type arrays
         self.data = np.zeros((n_sc, self.num_symbols), dtype=complex)
         self.channel_types = np.full((n_sc, self.num_symbols), self.channel_type, dtype=object)
         
-        # Generate and place DMRS if present
+        # Generate modulated symbols using the modulation type specified in constructor
+        self.data = generate_random_symbols(n_sc, self.num_symbols, self.modulation)
+        self.channel_types = np.full((n_sc, self.num_symbols), self.channel_type, dtype=object)
+        
+        # Then place DMRS in specific symbols, KEEPING data on odd subcarriers (like reference)
         if self.reference_signal:
-            # Calculate slot and symbol indices for DMRS generation
-            slot_idx = self.slot_pattern[0]  # Use first slot for now
-            symbol_idx = self.start_symbol
-            
-            dmrs_data = self.reference_signal.generate_symbols(
-                num_rb=self.num_rb,
-                num_symbols=self.num_symbols,
-                cell_id=self.cell_id,
-                slot_idx=slot_idx,
-                symbol_idx=symbol_idx
-            )
-        else:
-            dmrs_data = None
-        
-        # Generate PDSCH data symbols
-        pdsch_data = generate_random_symbols(n_sc, self.num_symbols, self.modulation)
-        
-        # Place data in correct positions
-        for rb in range(self.num_rb):
-            rb_start = rb * N_SC_PER_RB
-            
-            # Place PDSCH data first (in all REs)
-            for sc in range(N_SC_PER_RB):
-                data_idx = rb * N_SC_PER_RB + sc
-                for sym in range(self.num_symbols):
-                    self.data[rb_start + sc, sym] = pdsch_data[data_idx, sym]
-                    # All REs start as PDSCH
-                    self.channel_types[rb_start + sc, sym] = self.channel_type
-            
-            # Then place DMRS in specific symbols and mark them
-            if dmrs_data is not None and self.reference_signal:
-                dmrs_symbols = set(self.reference_signal.positions)  # Now positions are symbol indices
-                for sym in dmrs_symbols:
-                    if sym < self.num_symbols:  # Only place DMRS if symbol is within our allocation
-                        # Place DMRS on every other subcarrier (0, 2, 4, ...)
-                        for sc_idx in range(N_SC_PER_RB // 2):  # 6 DMRS per RB
-                            sc = 2 * sc_idx  # Convert to actual subcarrier index
-                            dmrs_idx = rb * (N_SC_PER_RB // 2) + sc_idx  # Index into DMRS data
-                            self.data[rb_start + sc, sym] = dmrs_data[dmrs_idx, 0]
-                            # Mark this RE as DMRS
-                            self.channel_types[rb_start + sc, sym] = ChannelType.DL_DMRS
+            dmrs_symbols = set(self.reference_signal.positions)
+            for sym in dmrs_symbols:
+                if sym < self.num_symbols:
+                    # Generate DMRS for this specific symbol (like reference)
+                    # Reference: slot_num = iSmb // 14 where iSmb = slot_start + sym
+                    # For our case, we need to calculate the actual slot number
+                    slot_start = min(self.slot_pattern)  # Get the starting slot
+                    slot_num = slot_start  # This should be 0 for the first slot
+                    dmrs_data = self.reference_signal.generate_symbols(
+                        num_rb=self.num_rb,
+                        num_symbols=1,  # Only 1 symbol
+                        cell_id=self.cell_id,
+                        slot_idx=slot_num,
+                        symbol_idx=sym
+                    )
+                    
+                    # Insert DMRS on even subcarriers, KEEP data on odd subcarriers (like reference)
+                    dmrs_length = min(len(dmrs_data), n_sc // 2)
+                    self.data[::2, sym] = dmrs_data[:dmrs_length, 0]  # Even subcarriers get DMRS
+                    # Odd subcarriers keep their original PDSCH data values
+                    
+                    # Mark even subcarriers as DMRS
+                    for sc in range(0, n_sc, 2):
+                        if sc < n_sc:
+                            self.channel_types[sc, sym] = ChannelType.DL_DMRS
 
     def get_re_mapping(self):
         """Get RE mapping using pre-computed channel types"""

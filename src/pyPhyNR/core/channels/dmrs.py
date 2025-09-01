@@ -11,7 +11,7 @@ from ..definitions import MAX_DMRS_RE
 
 def generate_gold_sequence(c_init: int) -> np.ndarray:
     """
-    Generate Gold sequence
+    Generate Gold sequence exactly matching MATLAB reference
     
     Args:
         c_init: 31-bit initialization value
@@ -19,23 +19,27 @@ def generate_gold_sequence(c_init: int) -> np.ndarray:
     Returns:
         Binary sequence (0s and 1s)
     """
-    # Pre-allocate arrays for full length
+    # Initialize x1 sequence exactly as reference
+    x1_init = np.array([1] + [0]*30)
+    x1 = x1_init.copy()
+    
+    # Initialize x2 sequence from c_init exactly as reference
+    x2_init = np.zeros(31)
+    for ii in range(31):
+        x2_init[ii] = (c_init >> ii) & 1
+    x2 = x2_init.copy()
+    
+    # Generate sequences exactly as reference
     MPN = (2**16) - 1
-    x1 = np.zeros(MPN + 31, dtype=int)
-    x2 = np.zeros(MPN + 31, dtype=int)
-    
-    # Initialize x1 and x2
-    x1[:31] = np.array([1] + [0]*30)  # First bit 1, rest 0
-    x2[:31] = np.array([(c_init >> ii) & 1 for ii in range(31)])
-    
-    # Generate sequences using array indexing
     for n in range(MPN):
-        x1[n + 31] = (x1[n + 3] + x1[n]) % 2
-        x2[n + 31] = (x2[n + 3] + x2[n + 2] + x2[n + 1] + x2[n]) % 2
+        x1 = np.append(x1, (x1[n+3] + x1[n]) % 2)
+        x2 = np.append(x2, (x2[n+3] + x2[n+2] + x2[n+1] + x2[n]) % 2)
     
-    # Generate c sequence with NC offset using vectorized operation
+    # Generate c sequence with NC offset exactly as reference
     NC = 1600
-    c = (x1[NC:MPN] + x2[NC:MPN]) % 2
+    c = np.zeros(MPN - NC, dtype=int)
+    for n in range(MPN - NC):
+        c[n] = (x1[n + NC] + x2[n + NC]) % 2
     
     return c
 
@@ -50,15 +54,15 @@ def map_to_qpsk(c: np.ndarray, n_symbols: int) -> np.ndarray:
     Returns:
         Complex QPSK symbols
     """
-    # Extract even and odd indices for all symbols at once
-    even_bits = c[0:2*n_symbols:2]  # c[0], c[2], c[4], ...
-    odd_bits = c[1:2*n_symbols:2]   # c[1], c[3], c[5], ...
+    # MATLAB indexing: c(2*n-1) and c(2*n+1-1) for n=1,2,3,...
+    # Python indexing: c[2*n-1] and c[2*n+1-1] for n=0,1,2,...
+    DMRS_cmplx = np.zeros(n_symbols, dtype=complex)
+    for n in range(n_symbols):
+        real_part = (1 - 2*c[2*n-1]) / np.sqrt(2)
+        imag_part = (1 - 2*c[2*n+1-1]) / np.sqrt(2)
+        DMRS_cmplx[n] = real_part + 1j * imag_part
     
-    # Vectorized computation matching MATLAB's formula
-    real_part = (1 - 2*even_bits) / np.sqrt(2)
-    imag_part = (1 - 2*odd_bits) / np.sqrt(2)
-    
-    return real_part + 1j*imag_part
+    return DMRS_cmplx
 
 @dataclass
 class ReferenceSignal:

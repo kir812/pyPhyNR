@@ -81,39 +81,16 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
     cp_short = round(144 * k * 2**(-mu) * fs_hz)  # Normal symbols
     cp_long = round((144 * k * 2**(-mu) + 16 * k) * fs_hz)  # First symbol
 
-    # Long CP once every 0.5 ms. That means:
-    # - mu >= 1 (slot ≤ 0.5 ms): symbol 0 of every slot is long
-    # - mu == 0 (slot = 1 ms): symbols 0 and 7 inside the slot are long
-    # MATLAB: if ~mod(symbcount,7*(2^num)) - this means every 7*(2^mu) symbols
-    long_positions = [0] if mu >= 1 else [0, 7]
-
-    # base CP list for one slot
+    # Long CP logic exactly as MATLAB reference
+    # MATLAB: if symbcount % (7 * (2**num)) == 0
+    # This means every 7*(2^mu) symbols get long CP
+    long_positions = []
+    for i in range(symbols_per_slot):
+        if i % (7 * (2**mu)) == 0:
+            long_positions.append(i)
+    
+    # base CP list for one slot - exactly as MATLAB reference
     cp_per_symbol = [cp_long if i in long_positions else cp_short for i in range(symbols_per_slot)]
-    sym_samples = [N_useful + c for c in cp_per_symbol]
-
-    # timing compensation to hit exact slot length
-    slot_samples_target = int(round(fs_hz * (1e-3 / (2**mu))))  # 1 ms / 2^mu
-    deficit = slot_samples_target - sum(sym_samples)
-
-    # Distribute padding to CPs (prefer long-CP first, then spread from end)
-    if deficit > 0:
-        order = long_positions + [i for i in range(symbols_per_slot-1, -1, -1)
-                                  if i not in long_positions]
-        k = 0
-        for _ in range(deficit):
-            i = order[k % len(order)]
-            cp_per_symbol[i] += 1
-            sym_samples[i] += 1
-            k += 1
-
-    elif deficit < 0:
-        order = [i for i in range(symbols_per_slot-1, -1, -1) if cp_per_symbol[i] > 0]
-        k = 0
-        for _ in range(-deficit):
-            i = order[k % len(order)]
-            cp_per_symbol[i] -= 1
-            sym_samples[i] -= 1
-            k += 1
 
     return OfdmParams(fs_hz, mu, scs_hz, N_useful, N_fft, cp_short, cp_long,
                       symbols_per_slot, 1e-3/(2**mu), cp_per_symbol)
