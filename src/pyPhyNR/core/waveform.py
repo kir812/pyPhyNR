@@ -42,7 +42,7 @@ class WaveformGenerator:
 
     def generate_ofdm_symbol(self, data: np.ndarray, ofdm_params: OfdmParams, symbol_idx: int) -> np.ndarray:
         """
-        Generate OFDM symbol with proper CP
+        Generate OFDM symbol with proper CP - matching MATLAB implementation exactly
         
         Args:
             data: Frequency domain data (complex)
@@ -55,10 +55,18 @@ class WaveformGenerator:
         # Get CP length for this symbol
         cp_length = ofdm_params.cp_per_symbol[symbol_idx]
 
-        # Zero-pad to FFT size for IFFT computation
+        # Zero-pad to FFT size for IFFT computation - match MATLAB exactly
         padded_data = np.zeros(ofdm_params.N_fft, dtype=complex)
-        start_idx = ofdm_params.N_fft // 2 - len(data) // 2
+        
+        # MATLAB: circshift(FD_symb,round((Nfft-noSC)/2))
+        # This centers the data in the FFT grid
+        start_idx = round((ofdm_params.N_fft - len(data)) / 2)
         padded_data[start_idx:start_idx + len(data)] = data
+
+        # MATLAB: ifft(ifftshift(FD_symb))
+        # We need to apply ifftshift equivalent before IFFT
+        # ifftshift shifts the zero-frequency component to the center
+        padded_data = np.fft.ifftshift(padded_data)
 
         # IFFT
         time_symbol_full = np.fft.ifft(padded_data)
@@ -69,7 +77,7 @@ class WaveformGenerator:
         end_useful = start_useful + ofdm_params.N_useful
         time_symbol = time_symbol_full[start_useful:end_useful]
 
-        # Add cyclic prefix
+        # Add cyclic prefix - match MATLAB: [TD_symb(end-cplength_smpls+1:end) TD_symb]
         cp = time_symbol[-cp_length:]
         return np.concatenate([cp, time_symbol])
 

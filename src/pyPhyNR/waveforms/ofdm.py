@@ -68,14 +68,34 @@ def calculate_ofdm_params(fs_hz: float, mu: int, cp_type: Literal["normal","exte
         return OfdmParams(fs_hz, mu, scs_hz, N_useful, N_fft, cp_e, cp_e,
                           symbols_per_slot, 1e-3/(2**mu), cp_per_symbol)
 
-    # Normal CP
+    # Normal CP - using MATLAB's exact 3GPP formula
     symbols_per_slot = 14
-    cp_short = round(N_useful * (144/2048))
-    cp_long  = round(N_useful * (160/2048))
+    
+    # 3GPP TS 38.211 Section 5.3.1: OFDM baseband signal generation
+    # Base parameters from 3GPP:
+    BASE_SCS = 15_000  # 15 kHz base subcarrier spacing
+    BASE_FFT = 4096    # Base FFT size
+    TC_SCALE = 32      # Tc = 1/(Δf_ref * N_f_ref) where Δf_ref = 15kHz * 32
+    K_SCALE = 64       # k = tc * 64 (scaling factor)
+    
+    # Normal CP lengths from 3GPP (ratio to FFT size):
+    # - First symbol: 160/2048 ≈ 7.81%
+    # - Other symbols: 144/2048 ≈ 7.03%
+    CP_RATIO_FIRST = 160/2048  # First symbol in slot
+    CP_RATIO_OTHER = 144/2048  # Other symbols
+    
+    # Calculate CP lengths following 3GPP timing
+    tc = 1/(BASE_SCS * TC_SCALE * BASE_FFT)  # Basic time unit
+    k = tc * K_SCALE                         # Scaling factor
+    
+    # Convert time to samples (scale by fs/2^mu for numerology)
+    cp_short = round(CP_RATIO_OTHER * 2048 * k * fs_hz / (2**mu))
+    cp_long = round(CP_RATIO_FIRST * 2048 * k * fs_hz / (2**mu))
 
     # Long CP once every 0.5 ms. That means:
     # - mu >= 1 (slot ≤ 0.5 ms): symbol 0 of every slot is long
     # - mu == 0 (slot = 1 ms): symbols 0 and 7 inside the slot are long
+    # MATLAB: if ~mod(symbcount,7*(2^num)) - this means every 7*(2^mu) symbols
     long_positions = [0] if mu >= 1 else [0, 7]
 
     # base CP list for one slot

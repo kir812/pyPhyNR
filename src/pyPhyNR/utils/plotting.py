@@ -194,7 +194,7 @@ def plot_frequency_domain(waveform: np.ndarray, carrier_config: CarrierConfig, t
     windowed_signal = waveform * window
     
     # FFT
-    fft_result = np.fft.fftshift(np.fft.fft(windowed_signal))
+    fft_result = np.fft.fft(windowed_signal)
     freq_axis = (np.fft.fftfreq(len(waveform), 1/carrier_config.sample_rate)) / 1e6  # Convert to MHz
     
     # Power spectral density
