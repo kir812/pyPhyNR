@@ -45,16 +45,20 @@ class PDSCH(PhysicalChannel):
         self.data = generate_random_symbols(n_sc, self.num_symbols, self.modulation)
         self.channel_types = np.full((n_sc, self.num_symbols), self.channel_type, dtype=object)
         
-        # Then place DMRS in specific symbols, KEEPING data on odd subcarriers (like reference)
+        # Then place DMRS in specific symbols, EXACTLY like reference script
         if self.reference_signal:
             dmrs_symbols = set(self.reference_signal.positions)
+            
+            # Loop through each DMRS symbol position exactly like reference
             for sym in dmrs_symbols:
                 if sym < self.num_symbols:
-                    # Generate DMRS for this specific symbol (like reference)
-                    # Reference: slot_num = iSmb // 14 where iSmb = slot_start + sym
-                    # For our case, we need to calculate the actual slot number
+                    # Calculate slot number exactly like reference: slot_num = iSmb // 14
+                    # where iSmb = slot_start + sym (absolute symbol index)
                     slot_start = min(self.slot_pattern)  # Get the starting slot
-                    slot_num = slot_start  # This should be 0 for the first slot
+                    absolute_symbol_idx = slot_start + sym  # iSmb equivalent
+                    slot_num = absolute_symbol_idx // 14  # slot_num = iSmb // 14
+                    
+                    # Generate DMRS for this specific symbol (like reference)
                     dmrs_data = self.reference_signal.generate_symbols(
                         num_rb=self.num_rb,
                         num_symbols=1,  # Only 1 symbol
