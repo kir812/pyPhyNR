@@ -2,10 +2,11 @@
 
 from dataclasses import dataclass, field
 import numpy as np
-from typing import Optional
+from typing import Optional, Dict, List
 from ..channel_types import ChannelType
 from ..definitions import N_SC_PER_RB, N_SYMBOLS_PER_SLOT
 from .dmrs import ReferenceSignal
+from ..re_mapping import REMapping
 
 @dataclass
 class PhysicalChannel:
@@ -62,3 +63,36 @@ class PhysicalChannel:
         if self.rnti != 0:
             # TODO: Implement RNTI-based scrambling
             pass
+            
+    def get_re_mapping(self) -> Dict[int, List[REMapping]]:
+        """
+        Get mapping of Resource Elements for this channel
+        
+        Returns:
+            Dictionary mapping slot number to list of RE mappings
+        """
+        mappings = {}
+        
+        for slot in self.slot_pattern:
+            slot_mappings = []
+            time_indices = self.time_indices[slot]
+            
+            # Map all REs in this slot
+            for i in self.freq_indices:
+                for j in time_indices:
+                    # Convert to local indices for data array
+                    local_i = i - min(self.freq_indices)
+                    local_j = j - min(time_indices)
+                    
+                    # Create mapping using data array values
+                    mapping = REMapping(
+                        subcarrier=i,
+                        symbol=j,
+                        data=self.data[local_i, local_j],
+                        channel_type=self.channel_type
+                    )
+                    slot_mappings.append(mapping)
+            
+            mappings[slot] = slot_mappings
+        
+        return mappings

@@ -5,7 +5,7 @@
 from dataclasses import dataclass, field
 from .numerology import NRNumerology, get_numerology
 from .definitions import get_rb_count, N_SC_PER_RB, N_SYMBOLS_PER_SLOT
-from .resources import ResourceElement, ResourceGrid, PhysicalChannel
+from .resources import ResourceElement, ResourceGrid
 from .channel_types import ChannelType
 
 

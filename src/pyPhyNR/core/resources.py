@@ -1,45 +1,19 @@
 from dataclasses import dataclass, field
-from .channel_types import ChannelType
+from typing import Dict, List
 import numpy as np
-from .channels.base import PhysicalChannel
-from .channels.ssblock import SSBlock
+from .channel_types import ChannelType
 
 @dataclass
 class ResourceElement:
     """Single Resource Element in 5G NR grid"""
-    channel: PhysicalChannel = None  # Reference to the channel that owns this RE
+    subcarrier: int  # Absolute subcarrier index in grid
+    symbol: int      # Absolute symbol index in grid
+    channel_type: ChannelType = ChannelType.EMPTY  # Type of channel occupying this RE
+    data: complex = 0+0j  # Complex data value for this RE
     
-    @property
-    def channel_type(self) -> ChannelType:
-        """Get channel type of this RE"""
-        if not self.channel:
-            return ChannelType.EMPTY
-            
-        # Check if this RE is a DMRS position
-        if isinstance(self.channel, SSBlock):
-            # For SSBlock, check the internal bitmap
-            sc = self.re_idx
-            sym = self.sym_idx
-            if self.channel.re_bitmap[sc, sym] == 3:  # 3 = PBCH DMRS in SSBlock
-                return ChannelType.DL_DMRS
-        elif self.channel.reference_signal and self.re_idx % 12 in self.channel.reference_signal.positions:
-            return ChannelType.DL_DMRS
-            
-        return self.channel.channel_type
-    
-    @property
-    def data(self) -> complex:
-        """Get data value for this RE"""
-        return 0+0j if self.channel is None else self.channel.data[self.re_idx, self.sym_idx]
-    
-    def __init__(self):
-        self.channel = None
-        self.re_idx = 0  # Index within channel's data array
-        self.sym_idx = 0
-
-    def can_add_channel(self, new_channel: PhysicalChannel) -> bool:
+    def can_add_channel(self, new_channel) -> bool:
         """Check if a new channel can be added to this RE"""
-        if self.channel is None:
+        if self.channel_type == ChannelType.EMPTY:
             return True
         # PDCCH can be added on top of CORESET
         if new_channel.channel_type == ChannelType.PDCCH and self.channel_type == ChannelType.CORESET:
@@ -54,30 +28,29 @@ class ResourceGrid:
     grid: np.ndarray = field(init=False)  # Array of ResourceElements
 
     def __post_init__(self):
-        self.grid = np.array([[ResourceElement() for _ in range(self.n_symbols)]
-                             for _ in range(self.n_subcarriers)], dtype=object)
+        # Initialize grid with empty REs, each knowing its position
+        self.grid = np.array([[ResourceElement(subcarrier=sc, symbol=sym) 
+                              for sym in range(self.n_symbols)]
+                             for sc in range(self.n_subcarriers)], dtype=object)
 
-    def add_channel(self, channel: PhysicalChannel):
+    def add_channel(self, channel):
         """Add a physical channel to the grid"""
-        # For each slot in the pattern
-        for slot in channel.slot_pattern:
-            time_indices = channel.time_indices[slot]
-
-            # Check for conflicts
-            for i in channel.freq_indices:
-                for j in time_indices:
-                    re = self.grid[i, j]
-                    if not re.can_add_channel(channel):
-                        existing_type = re.channel_type if re.channel else "EMPTY"
-                        raise ValueError(f"Cannot add {channel.channel_type} - resource at RB {i//12}, symbol {j} already occupied by {existing_type}")
-
-            # If no conflicts, add the channel
-            for i in channel.freq_indices:
-                for j in time_indices:
-                    re = self.grid[i, j]
-                    re.channel = channel
-                    re.re_idx = i - min(channel.freq_indices)
-                    re.sym_idx = j - min(time_indices)
+        # Get channel's RE mapping
+        re_mapping = channel.get_re_mapping()
+        
+        # Check for conflicts first
+        for slot, mappings in re_mapping.items():
+            for mapping in mappings:
+                re = self.grid[mapping.subcarrier, mapping.symbol]
+                if not re.can_add_channel(channel):
+                    raise ValueError(f"Cannot add {channel.channel_type} - resource at RB {mapping.subcarrier//12}, symbol {mapping.symbol} already occupied by {re.channel_type}")
+        
+        # Then add channel data
+        for slot, mappings in re_mapping.items():
+            for mapping in mappings:
+                re = self.grid[mapping.subcarrier, mapping.symbol]
+                re.data = mapping.data
+                re.channel_type = mapping.channel_type
 
     @property
     def channel_types(self):

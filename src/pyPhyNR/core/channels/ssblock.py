@@ -3,13 +3,14 @@ SS/PBCH Block (SSBlock) - Container for PSS, SSS, and PBCH
 """
 
 import numpy as np
-from typing import List
+from typing import Dict, List
 from ..channel_types import ChannelType
 from .base import PhysicalChannel
 from .pss import PSS
 from .sss import SSS
 from .pbch import PBCH
 from ..definitions import N_SC_PER_RB
+from ..re_mapping import REMapping
 
 class SSBlock(PhysicalChannel):
     """
@@ -24,7 +25,8 @@ class SSBlock(PhysicalChannel):
     """
     
     def __init__(self, cell_id: int, start_rb: int, start_symbol: int, slot_pattern: list[int],
-                 ssb_index: int = 0, half_frame: int = 0):
+                 ssb_index: int = 0, half_frame: int = 0, power: float = 0.0, 
+                 rnti: int = 0, payload_pattern: str = "0"):
         # SSBlock has fixed dimensions: 240 subcarriers × 4 symbols
         num_rb = 20  # 240 subcarriers = 20 RBs
         num_symbols = 4  # SSBlock occupies 4 symbols
@@ -35,7 +37,10 @@ class SSBlock(PhysicalChannel):
             num_rb=num_rb,
             start_symbol=start_symbol,
             num_symbols=num_symbols,
-            slot_pattern=slot_pattern
+            slot_pattern=slot_pattern,
+            power=power,
+            rnti=rnti,
+            payload_pattern=payload_pattern
         )
         
         self.cell_id = cell_id
@@ -148,3 +153,38 @@ class SSBlock(PhysicalChannel):
                         if pos_in_rb in dmrs_positions:
                             dmrs_idx = dmrs_positions.index(pos_in_rb)
                             self.data[sc, sym] = self.pbch.reference_signal.generate_symbols(1, 1)[dmrs_idx, 0]
+                            
+    def get_re_mapping(self) -> Dict[int, List[REMapping]]:
+        """
+        Get mapping of Resource Elements for this channel
+        
+        Returns:
+            Dictionary mapping slot number to list of RE mappings
+        """
+        mappings = {}
+        
+        for slot in self.slot_pattern:
+            slot_mappings = []
+            time_indices = self.time_indices[slot]
+            
+            for i in self.freq_indices:
+                for j in time_indices:
+                    local_i = i - min(self.freq_indices)
+                    local_j = j - min(time_indices)
+                    
+                    # Use bitmap to determine channel type
+                    ch_type = self.channel_type
+                    if self.re_bitmap[local_i, local_j] == 3:  # PBCH DMRS
+                        ch_type = ChannelType.DL_DMRS
+                    
+                    mapping = REMapping(
+                        subcarrier=i,
+                        symbol=j,
+                        data=self.data[local_i, local_j],
+                        channel_type=ch_type
+                    )
+                    slot_mappings.append(mapping)
+            
+            mappings[slot] = slot_mappings
+        
+        return mappings

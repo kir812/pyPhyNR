@@ -14,7 +14,7 @@ from .definitions import (
     get_frequency_range
 )
 from .carrier import CarrierConfig
-from .resources import ResourceElement
+from .resources import ResourceElement, ResourceGrid
 from .waveform import WaveformGenerator
 
 __all__ = [

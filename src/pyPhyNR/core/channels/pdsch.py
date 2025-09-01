@@ -36,8 +36,9 @@ class PDSCH(PhysicalChannel):
     def _generate_data(self):
         """Generate PDSCH data with DMRS integration"""
         n_sc = self.num_rb * N_SC_PER_RB
-        # Initialize full data array
+        # Initialize data and channel type arrays
         self.data = np.zeros((n_sc, self.num_symbols), dtype=complex)
+        self.channel_types = np.full((n_sc, self.num_symbols), self.channel_type, dtype=object)
         
         # Generate and place DMRS if present
         if self.reference_signal:
@@ -62,18 +63,53 @@ class PDSCH(PhysicalChannel):
         for rb in range(self.num_rb):
             rb_start = rb * N_SC_PER_RB
             
-            # Place DMRS
-            if dmrs_data is not None and self.reference_signal:
-                for i, pos in enumerate(self.reference_signal.positions):
-                    dmrs_idx = rb * len(self.reference_signal.positions) + i
-                    for sym in range(self.num_symbols):
-                        self.data[rb_start + pos, sym] = dmrs_data[dmrs_idx, sym]
-            
-            # Place PDSCH data (excluding DMRS positions)
-            dmrs_positions = set(self.reference_signal.positions) if self.reference_signal else set()
-            data_positions = [pos for pos in range(N_SC_PER_RB) if pos not in dmrs_positions]
-            
-            for i, pos in enumerate(data_positions):
-                data_idx = rb * len(data_positions) + i
+            # Place PDSCH data first (in all REs)
+            for sc in range(N_SC_PER_RB):
+                data_idx = rb * N_SC_PER_RB + sc
                 for sym in range(self.num_symbols):
-                    self.data[rb_start + pos, sym] = pdsch_data[data_idx, sym]
+                    self.data[rb_start + sc, sym] = pdsch_data[data_idx, sym]
+                    # All REs start as PDSCH
+                    self.channel_types[rb_start + sc, sym] = self.channel_type
+            
+            # Then place DMRS in specific symbols and mark them
+            if dmrs_data is not None and self.reference_signal:
+                dmrs_symbols = set(self.reference_signal.positions)  # Now positions are symbol indices
+                for sym in dmrs_symbols:
+                    if sym < self.num_symbols:  # Only place DMRS if symbol is within our allocation
+                        # Place DMRS on every other subcarrier (0, 2, 4, ...)
+                        for sc_idx in range(N_SC_PER_RB // 2):  # 6 DMRS per RB
+                            sc = 2 * sc_idx  # Convert to actual subcarrier index
+                            dmrs_idx = rb * (N_SC_PER_RB // 2) + sc_idx  # Index into DMRS data
+                            self.data[rb_start + sc, sym] = dmrs_data[dmrs_idx, 0]
+                            # Mark this RE as DMRS
+                            self.channel_types[rb_start + sc, sym] = ChannelType.DL_DMRS
+
+    def get_re_mapping(self):
+        """Get RE mapping using pre-computed channel types"""
+        from ..re_mapping import REMapping
+        
+        mappings = {}
+        
+        for slot in self.slot_pattern:
+            slot_mappings = []
+            time_indices = self.time_indices[slot]
+            
+            for i in self.freq_indices:
+                for j in time_indices:
+                    local_i = i - min(self.freq_indices)
+                    local_j = j - min(time_indices)
+                    
+                    # Use pre-computed channel type instead of base class channel_type
+                    ch_type = self.channel_types[local_i, local_j]
+                    
+                    mapping = REMapping(
+                        subcarrier=i,
+                        symbol=j,
+                        data=self.data[local_i, local_j],
+                        channel_type=ch_type
+                    )
+                    slot_mappings.append(mapping)
+            
+            mappings[slot] = slot_mappings
+        
+        return mappings

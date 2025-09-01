@@ -202,6 +202,7 @@ class NRSignalBuilder:
                   modulation: str = "QAM64",
                   dmrs_type: str = "A",
                   dmrs_add_pos: int = 1,
+                  dmrs_positions: List[int] = None,
                   power: float = 0.0,
                   rnti: int = 0,
                   payload_pattern: str = "0") -> 'NRSignalBuilder':
@@ -215,12 +216,12 @@ class NRSignalBuilder:
             num_symbols: Number of symbols
             slot_pattern: List of slots
             modulation: Modulation type ("QPSK", "QAM16", "QAM64", "QAM256")
-            dmrs_type: DMRS type ("A" or "B")
-            dmrs_add_pos: Additional DMRS positions
+            dmrs_type: DMRS type ("A" or "B"), ignored if dmrs_positions is provided
+            dmrs_add_pos: Additional DMRS positions, ignored if dmrs_positions is provided
+            dmrs_positions: Optional custom DMRS positions. If provided, overrides dmrs_type and dmrs_add_pos
             power: Power scaling in dB
             rnti: Radio Network Temporary Identifier
             payload_pattern: Payload pattern
-            slot_count: Number of slots to repeat pattern
             
         Returns:
             Self for method chaining
@@ -228,8 +229,9 @@ class NRSignalBuilder:
         if not self.grid:
             raise RuntimeError("Grid not initialized. Call initialize_grid() first")
             
-        # Get DMRS positions based on type
-        dmrs_positions = self._get_dmrs_positions(dmrs_type, dmrs_add_pos)
+        # Use custom DMRS positions if provided, otherwise get from type
+        if dmrs_positions is None:
+            dmrs_positions = self._get_dmrs_positions(dmrs_type, dmrs_add_pos)
         
         pdsch = PDSCH(
             start_rb=start_rb,

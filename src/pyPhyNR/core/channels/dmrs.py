@@ -7,6 +7,7 @@ import numpy as np
 from typing import List
 from ..channel_types import ChannelType
 from ..modulation import ModulationType, generate_random_symbols
+from ..definitions import MAX_DMRS_RE_FR1, MAX_DMRS_RE_FR2_1, MAX_DMRS_RE_FR2_2
 
 def generate_gold_sequence(c_init: int, length: int) -> np.ndarray:
     """
@@ -118,21 +119,26 @@ class PDSCH_DMRS(ReferenceSignal):
         Returns:
             Complex DMRS symbols
         """
-        n_positions = len(self.positions)
-        n_sc = num_rb * n_positions
+        # Use FR1 maximum for now (TODO: make this configurable based on frequency range)
+        MAX_DMRS_RE = MAX_DMRS_RE_FR1  # 1638 REs for FR1
         
         # PDSCH DMRS initialization formula from TS 38.211
         c_init = (2**17 * (14 * slot_idx + symbol_idx + 1) * (2 * cell_id + 1) + 2 * cell_id) % (2**31)
         
-        # Generate Gold sequence for all symbols
-        total_binary_symbols = n_sc * num_symbols * 2  # *2 for QPSK mapping
+        # Generate Gold sequence for maximum possible length
+        total_binary_symbols = MAX_DMRS_RE * 2  # *2 for QPSK mapping
         binary_seq = generate_gold_sequence(c_init, total_binary_symbols)
         
         # Map to QPSK symbols
         qpsk_symbols = map_to_qpsk(binary_seq)
         
-        # Reshape to (n_sc, num_symbols)
-        return qpsk_symbols.reshape(n_sc, num_symbols)
+        # Take only what we need for our bandwidth
+        n_sc_per_rb = 6  # 12 subcarriers / 2 (every other subcarrier)
+        n_sc = num_rb * n_sc_per_rb
+        dmrs_symbols = qpsk_symbols[:n_sc]
+        
+        # Return as column vector (n_sc, 1)
+        return dmrs_symbols.reshape(n_sc, 1)
 
 @dataclass
 class PBCH_DMRS(ReferenceSignal):

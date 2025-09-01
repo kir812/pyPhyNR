@@ -5,6 +5,16 @@
 # Resource Block (RB) definitions
 N_SC_PER_RB = 12  # Number of subcarriers per RB
 
+# Maximum carrier configurations
+MAX_PRB_FR1 = 273  # Maximum PRBs in FR1 (100 MHz at 15kHz SCS)
+MAX_PRB_FR2_1 = 264  # Maximum PRBs in FR2-1 (400 MHz at 120kHz SCS)
+MAX_PRB_FR2_2 = 1320  # Maximum PRBs in FR2-2 (2000 MHz at 120kHz SCS)
+
+# Maximum DMRS REs per symbol (based on max carrier bandwidth)
+MAX_DMRS_RE_FR1 = (MAX_PRB_FR1 * N_SC_PER_RB) // 2  # Every other subcarrier
+MAX_DMRS_RE_FR2_1 = (MAX_PRB_FR2_1 * N_SC_PER_RB) // 2
+MAX_DMRS_RE_FR2_2 = (MAX_PRB_FR2_2 * N_SC_PER_RB) // 2
+
 # Slot and frame definitions
 N_SYMBOLS_PER_SLOT = 14  # Number of OFDM symbols per slot
 N_SLOTS_PER_FRAME = 20   # Number of slots per 10ms frame
