@@ -7,13 +7,12 @@ from ..channel_types import ChannelType
 from .base import PhysicalChannel
 from ..modulation import ModulationType, generate_random_symbols
 from ..definitions import N_SC_PER_RB
-from .dmrs import PDSCH_DMRS
 
 class PDSCH(PhysicalChannel):
     """Physical Downlink Shared Channel"""
     def __init__(self, start_rb: int, num_rb: int, start_symbol: int, num_symbols: int, 
                  slot_pattern: list[int], modulation: ModulationType = ModulationType.QPSK,
-                 dmrs_positions: list[int] = None, cell_id: int = 0, power: float = 0.0,
+                 cell_id: int = 0, power: float = 0.0,
                  rnti: int = 0, payload_pattern: str = "0"):
         super().__init__(
             channel_type=ChannelType.PDSCH,
@@ -22,7 +21,7 @@ class PDSCH(PhysicalChannel):
             start_symbol=start_symbol,
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
-            reference_signal=PDSCH_DMRS(positions=dmrs_positions),
+            reference_signal=None,  # No DMRS - will be added separately
             power=power,
             rnti=rnti,
             payload_pattern=payload_pattern
@@ -34,7 +33,7 @@ class PDSCH(PhysicalChannel):
         self._generate_data()
 
     def _generate_data(self):
-        """Generate PDSCH data with DMRS integration exactly matching MATLAB reference"""
+        """Generate PDSCH data only - DMRS will be added separately like MATLAB reference"""
         n_sc = self.num_rb * N_SC_PER_RB
         
         # Initialize data and channel type arrays
@@ -45,37 +44,9 @@ class PDSCH(PhysicalChannel):
         self.data = generate_random_symbols(n_sc, self.num_symbols, self.modulation)
         self.channel_types = np.full((n_sc, self.num_symbols), self.channel_type, dtype=object)
         
-        # Then place DMRS in specific symbols, EXACTLY like reference script
-        if self.reference_signal:
-            dmrs_symbols = set(self.reference_signal.positions)
-            
-            # Loop through each DMRS symbol position exactly like reference
-            for sym in dmrs_symbols:
-                if sym < self.num_symbols:
-                    # Calculate slot number exactly like reference: slot_num = iSmb // 14
-                    # where iSmb = slot_start + sym (absolute symbol index)
-                    slot_start = min(self.slot_pattern)  # Get the starting slot
-                    absolute_symbol_idx = slot_start + sym  # iSmb equivalent
-                    slot_num = absolute_symbol_idx // 14  # slot_num = iSmb // 14
-                    
-                    # Generate DMRS for this specific symbol (like reference)
-                    dmrs_data = self.reference_signal.generate_symbols(
-                        num_rb=self.num_rb,
-                        num_symbols=1,  # Only 1 symbol
-                        cell_id=self.cell_id,
-                        slot_idx=slot_num,
-                        symbol_idx=sym
-                    )
-                    
-                    # Insert DMRS on even subcarriers, KEEP data on odd subcarriers (like reference)
-                    dmrs_length = min(len(dmrs_data), n_sc // 2)
-                    self.data[::2, sym] = dmrs_data[:dmrs_length, 0]  # Even subcarriers get DMRS
-                    # Odd subcarriers keep their original PDSCH data values
-                    
-                    # Mark even subcarriers as DMRS
-                    for sc in range(0, n_sc, 2):
-                        if sc < n_sc:
-                            self.channel_types[sc, sym] = ChannelType.DL_DMRS
+        # Apply power scaling if specified
+        if self.power != 0.0:
+            self.data *= 10**(self.power/20)  # Convert dB to linear scale
 
     def get_re_mapping(self):
         """Get RE mapping using pre-computed channel types"""

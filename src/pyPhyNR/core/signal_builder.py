@@ -9,6 +9,7 @@ from .carrier import CarrierConfig
 from .channels import SSBlock, CORESET, PDCCH, PDSCH
 from .modulation import ModulationType
 from .waveform import WaveformGenerator
+from .channel_types import ChannelType
 
 @dataclass
 class CarrierParameters:
@@ -200,14 +201,11 @@ class NRSignalBuilder:
                   num_symbols: int,
                   slot_pattern: List[int],
                   modulation: str = "QAM64",
-                  dmrs_type: str = "A",
-                  dmrs_add_pos: int = 1,
-                  dmrs_positions: List[int] = None,
                   power: float = 0.0,
                   rnti: int = 0,
                   payload_pattern: str = "0") -> 'NRSignalBuilder':
         """
-        Add PDSCH
+        Add PDSCH (without DMRS - DMRS will be added separately)
         
         Args:
             start_rb: Starting resource block
@@ -216,9 +214,6 @@ class NRSignalBuilder:
             num_symbols: Number of symbols
             slot_pattern: List of slots
             modulation: Modulation type ("QPSK", "QAM16", "QAM64", "QAM256")
-            dmrs_type: DMRS type ("A" or "B"), ignored if dmrs_positions is provided
-            dmrs_add_pos: Additional DMRS positions, ignored if dmrs_positions is provided
-            dmrs_positions: Optional custom DMRS positions. If provided, overrides dmrs_type and dmrs_add_pos
             power: Power scaling in dB
             rnti: Radio Network Temporary Identifier
             payload_pattern: Payload pattern
@@ -228,10 +223,6 @@ class NRSignalBuilder:
         """
         if not self.grid:
             raise RuntimeError("Grid not initialized. Call initialize_grid() first")
-            
-        # Use custom DMRS positions if provided, otherwise get from type
-        if dmrs_positions is None:
-            dmrs_positions = self._get_dmrs_positions(dmrs_type, dmrs_add_pos)
         
         pdsch = PDSCH(
             start_rb=start_rb,
@@ -240,7 +231,6 @@ class NRSignalBuilder:
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
             modulation=ModulationType[modulation],
-            dmrs_positions=dmrs_positions,
             cell_id=self.cell_id,
             power=power,
             rnti=rnti,
@@ -249,15 +239,96 @@ class NRSignalBuilder:
         self.grid.add_channel(pdsch)
         return self
     
-    def _get_dmrs_positions(self, dmrs_type: str, add_pos: int) -> List[int]:
-        """Get DMRS positions based on type and additional positions"""
-        if dmrs_type == "A":
-            base_pos = [0, 2, 4, 6, 8, 10]  # Type A positions
-        else:  # Type B
-            base_pos = [0, 1, 6, 7]  # Type B positions
+    def add_dmrs(self, dmrs_positions: List[int] = None, 
+                  clear_full_symbol: bool = True, 
+                  subcarrier_pattern: str = "even",
+                  power: float = 0.0) -> 'NRSignalBuilder':
+        """
+        Add DMRS to the grid with configurable options
+        
+        Args:
+            dmrs_positions: DMRS symbol positions (default: [2, 11] like reference)
+            clear_full_symbol: If True, clear entire symbol before inserting DMRS (default: True, like MATLAB)
+            subcarrier_pattern: Which subcarriers to use ("even", "odd", "all", or custom list)
+            power: Power scaling in dB (default: 0.0, should match PDSCH power)
             
-        # TODO: Handle additional positions based on add_pos parameter
-        return base_pos
+        Returns:
+            Self for method chaining
+        """
+        if not self.grid:
+            raise RuntimeError("Grid not initialized. Call initialize_grid() first")
+        
+        # Default DMRS positions like MATLAB reference
+        if dmrs_positions is None:
+            dmrs_positions = [2, 11]
+        
+        # Get the resource grid values
+        resource_grid = self.grid.values
+        
+        # Insert DMRS symbols exactly like MATLAB reference
+        # Get total slots from carrier configuration
+        total_slots = 10 * self.carrier_config.numerology.slots_per_subframe  # 10 subframes
+        
+        for slot_idx in range(total_slots):
+            for dmrs_sym in dmrs_positions:
+                # Calculate absolute symbol index like MATLAB: iSmb = slot_idx * 14 + dmrs_sym
+                absolute_sym_idx = slot_idx * 14 + dmrs_sym
+                
+                if absolute_sym_idx < resource_grid.shape[1]:  # Check bounds
+                    # Generate DMRS for this symbol
+                    from .channels.dmrs import generate_gold_sequence, map_to_qpsk
+                    
+                    # Calculate c_init exactly like MATLAB
+                    c_init = ((2**17) * (14*slot_idx + dmrs_sym + 1) * 
+                              (2*self.cell_id + 1) + 2*self.cell_id) % (2**31)
+                    
+                    # Generate Gold sequence
+                    c = generate_gold_sequence(c_init)
+                    
+                    # Generate DMRS symbols (fixed length like MATLAB)
+                    NoDMRSRE = 3276 // 2  # Max number of DMRS REs
+                    dmrs_symbols = map_to_qpsk(c, NoDMRSRE)
+                    
+                    # Apply power scaling if specified
+                    if power != 0.0:
+                        dmrs_symbols *= 10**(power/20)  # Convert dB to linear scale
+                    
+                    # Handle subcarrier pattern selection
+                    if subcarrier_pattern == "even":
+                        subcarrier_indices = list(range(0, resource_grid.shape[0], 2))  # [0, 2, 4, 6, ...]
+                    elif subcarrier_pattern == "odd":
+                        subcarrier_indices = list(range(1, resource_grid.shape[0], 2))  # [1, 3, 5, 7, ...]
+                    elif subcarrier_pattern == "all":
+                        subcarrier_indices = list(range(resource_grid.shape[0]))  # [0, 1, 2, 3, ...]
+                    elif isinstance(subcarrier_pattern, list):
+                        subcarrier_indices = [i for i in subcarrier_pattern if 0 <= i < resource_grid.shape[0]]
+                    else:
+                        raise ValueError(f"Invalid subcarrier_pattern: {subcarrier_pattern}. Use 'even', 'odd', 'all', or custom list")
+                    
+                    # 1. Clear symbol if requested (like MATLAB reference)
+                    if clear_full_symbol:
+                        resource_grid[:, absolute_sym_idx] = 0
+                    
+                    # 2. Insert DMRS on selected subcarriers
+                    dmrs_length = min(len(dmrs_symbols), len(subcarrier_indices))
+                    for i, sc_idx in enumerate(subcarrier_indices[:dmrs_length]):
+                        resource_grid[sc_idx, absolute_sym_idx] = dmrs_symbols[i]
+                    
+                    # Update channel types and data for selected subcarriers
+                    for sc in range(resource_grid.shape[0]):
+                        if sc in subcarrier_indices[:dmrs_length]:
+                            # This subcarrier gets DMRS
+                            dmrs_idx = subcarrier_indices.index(sc)
+                            if dmrs_idx < len(dmrs_symbols):
+                                self.grid.grid[sc, absolute_sym_idx].channel_type = ChannelType.DL_DMRS
+                                self.grid.grid[sc, absolute_sym_idx].data = dmrs_symbols[dmrs_idx]
+                        elif clear_full_symbol:
+                            # This subcarrier is cleared (0)
+                            self.grid.grid[sc, absolute_sym_idx].channel_type = ChannelType.EMPTY
+                            self.grid.grid[sc, absolute_sym_idx].data = 0
+                        # If not clearing full symbol, other subcarriers keep their original data
+        
+        return self
     
     def generate_signal(self, sample_rate: Optional[float] = None) -> 'NRSignalBuilder':
         """
