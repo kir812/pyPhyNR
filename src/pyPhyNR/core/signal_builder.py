@@ -11,6 +11,33 @@ from .modulation import ModulationType
 from .waveform import WaveformGenerator
 from .channel_types import ChannelType
 
+class PDSCHBuilder:
+    """Builder for PDSCH with fluent API for adding DMRS"""
+    
+    def __init__(self, signal_builder: 'NRSignalBuilder', pdsch: PDSCH):
+        self.signal_builder = signal_builder
+        self.pdsch = pdsch
+    
+    def add_dmrs(self, dmrs_positions: List[int] = None, 
+                  clear_full_symbol: bool = True, 
+                  subcarrier_pattern: str = "even",
+                  power_offset_db: float = 0.0) -> 'NRSignalBuilder':
+        """
+        Add DMRS to the PDSCH with configurable options
+        
+        Args:
+            dmrs_positions: DMRS symbol positions (default: [2, 11])
+            clear_full_symbol: If True, clear entire symbol before inserting DMRS
+            subcarrier_pattern: Which subcarriers to use ("even", "odd", "all", or custom list)
+            power_offset_db: DMRS power relative to PDSCH in dB (default: 0.0 = same power)
+            
+        Returns:
+            NRSignalBuilder for further method chaining
+        """
+        return self.signal_builder._add_dmrs_to_pdsch(
+            self.pdsch, dmrs_positions, clear_full_symbol, subcarrier_pattern, power_offset_db
+        )
+
 @dataclass
 class CarrierParameters:
     """Carrier configuration parameters"""
@@ -203,9 +230,10 @@ class NRSignalBuilder:
                   modulation: str = "QAM64",
                   power: float = 0.0,
                   rnti: int = 0,
-                  payload_pattern: str = "0") -> 'NRSignalBuilder':
+                  payload_pattern: str = "0",
+                  deterministic: bool = False) -> PDSCHBuilder:
         """
-        Add PDSCH (without DMRS - DMRS will be added separately)
+        Add PDSCH and return a PDSCHBuilder for chaining DMRS addition
         
         Args:
             start_rb: Starting resource block
@@ -217,9 +245,10 @@ class NRSignalBuilder:
             power: Power scaling in dB
             rnti: Radio Network Temporary Identifier
             payload_pattern: Payload pattern
+            deterministic: If True, use deterministic data generation (for testing)
             
         Returns:
-            Self for method chaining
+            PDSCHBuilder for chaining DMRS addition
         """
         if not self.grid:
             raise RuntimeError("Grid not initialized. Call initialize_grid() first")
@@ -234,23 +263,25 @@ class NRSignalBuilder:
             cell_id=self.cell_id,
             power=power,
             rnti=rnti,
-            payload_pattern=payload_pattern
+            payload_pattern=payload_pattern,
+            deterministic=deterministic
         )
         self.grid.add_channel(pdsch)
-        return self
+        return PDSCHBuilder(self, pdsch)
     
-    def add_dmrs(self, dmrs_positions: List[int] = None, 
-                  clear_full_symbol: bool = True, 
-                  subcarrier_pattern: str = "even",
-                  power: float = 0.0) -> 'NRSignalBuilder':
+    def _add_dmrs_to_pdsch(self, pdsch: PDSCH, dmrs_positions: List[int] = None, 
+                          clear_full_symbol: bool = True, 
+                          subcarrier_pattern: str = "even",
+                          power_offset_db: float = 0.0) -> 'NRSignalBuilder':
         """
-        Add DMRS to the grid with configurable options
+        Internal method to add DMRS to a specific PDSCH
         
         Args:
-            dmrs_positions: DMRS symbol positions (default: [2, 11] like reference)
-            clear_full_symbol: If True, clear entire symbol before inserting DMRS (default: True, like MATLAB)
+            pdsch: The PDSCH channel to add DMRS to
+            dmrs_positions: DMRS symbol positions (default: [2, 11])
+            clear_full_symbol: If True, clear entire symbol before inserting DMRS
             subcarrier_pattern: Which subcarriers to use ("even", "odd", "all", or custom list)
-            power: Power scaling in dB (default: 0.0, should match PDSCH power)
+            power_offset_db: DMRS power relative to PDSCH in dB (default: 0.0 = same power)
             
         Returns:
             Self for method chaining
@@ -258,40 +289,48 @@ class NRSignalBuilder:
         if not self.grid:
             raise RuntimeError("Grid not initialized. Call initialize_grid() first")
         
-        # Default DMRS positions like MATLAB reference
+        # Default DMRS positions
         if dmrs_positions is None:
             dmrs_positions = [2, 11]
         
         # Get the resource grid values
         resource_grid = self.grid.values
         
-        # Insert DMRS symbols exactly like MATLAB reference
-        # Get total slots from carrier configuration
-        total_slots = 10 * self.carrier_config.numerology.slots_per_subframe  # 10 subframes
+        # Insert DMRS symbols only in slots where PDSCH exists
+        # Use the PDSCH's slot pattern instead of all slots
+        pdsch_slots = pdsch.slot_pattern
         
-        for slot_idx in range(total_slots):
+        # Pre-generate all DMRS sequences for better performance
+        from .channels.dmrs import generate_gold_sequence, map_to_qpsk
+        NoDMRSRE = 3276 // 2  # Max number of DMRS REs
+        
+        # Cache for DMRS sequences
+        dmrs_cache = {}
+        
+        for slot_idx in pdsch_slots:
             for dmrs_sym in dmrs_positions:
-                # Calculate absolute symbol index like MATLAB: iSmb = slot_idx * 14 + dmrs_sym
+                # Calculate absolute symbol index: iSmb = slot_idx * 14 + dmrs_sym
                 absolute_sym_idx = slot_idx * 14 + dmrs_sym
                 
                 if absolute_sym_idx < resource_grid.shape[1]:  # Check bounds
-                    # Generate DMRS for this symbol
-                    from .channels.dmrs import generate_gold_sequence, map_to_qpsk
-                    
-                    # Calculate c_init exactly like MATLAB
+                    # Calculate c_init
                     c_init = ((2**17) * (14*slot_idx + dmrs_sym + 1) * 
                               (2*self.cell_id + 1) + 2*self.cell_id) % (2**31)
                     
-                    # Generate Gold sequence
-                    c = generate_gold_sequence(c_init)
+                    # Use cached sequence if available, otherwise generate
+                    if c_init not in dmrs_cache:
+                        c = generate_gold_sequence(c_init)
+                        dmrs_cache[c_init] = map_to_qpsk(c, NoDMRSRE)
                     
-                    # Generate DMRS symbols (fixed length like MATLAB)
-                    NoDMRSRE = 3276 // 2  # Max number of DMRS REs
-                    dmrs_symbols = map_to_qpsk(c, NoDMRSRE)
+                    dmrs_symbols = dmrs_cache[c_init]
                     
-                    # Apply power scaling if specified
-                    if power != 0.0:
-                        dmrs_symbols *= 10**(power/20)  # Convert dB to linear scale
+                    # Apply DMRS power relative to PDSCH power
+                    # Get PDSCH power level
+                    pdsch_power_linear = 10**(pdsch.power/20) if pdsch.power != 0.0 else 1.0
+                    
+                    # Apply DMRS power offset relative to PDSCH
+                    dmrs_power_linear = pdsch_power_linear * 10**(power_offset_db/20)
+                    dmrs_symbols *= dmrs_power_linear
                     
                     # Handle subcarrier pattern selection
                     if subcarrier_pattern == "even":
@@ -305,7 +344,7 @@ class NRSignalBuilder:
                     else:
                         raise ValueError(f"Invalid subcarrier_pattern: {subcarrier_pattern}. Use 'even', 'odd', 'all', or custom list")
                     
-                    # 1. Clear symbol if requested (like MATLAB reference)
+                    # 1. Clear symbol if requested
                     if clear_full_symbol:
                         resource_grid[:, absolute_sym_idx] = 0
                     

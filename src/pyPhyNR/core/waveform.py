@@ -42,7 +42,7 @@ class WaveformGenerator:
 
     def generate_ofdm_symbol(self, data: np.ndarray, ofdm_params: OfdmParams, symbol_idx: int) -> np.ndarray:
         """
-        Generate OFDM symbol exactly matching MATLAB reference
+        Generate OFDM symbol
         
         Args:
             data: Frequency domain data (complex)
@@ -55,18 +55,23 @@ class WaveformGenerator:
         # Get CP length for this symbol
         cp_length = ofdm_params.cp_per_symbol[symbol_idx]
 
-        # Zero-pad to FFT size exactly as MATLAB
+        # Zero-pad to FFT size
         FD_symb = np.concatenate([data, np.zeros(ofdm_params.N_fft - len(data))])
         
-        # Circshift to center the data exactly as MATLAB
+        # Circshift to center the data
         shift_amount = round((ofdm_params.N_fft - len(data)) / 2)
         FD_symb = np.roll(FD_symb, shift_amount)
         
-        # IFFT with ifftshift exactly as MATLAB
-        TD_symb = np.fft.ifft(np.fft.ifftshift(FD_symb))
         
-        # Add cyclic prefix exactly as MATLAB: [TD_symb[-cp_length:] TD_symb]
+        # IFFT with ifftshift
+        ifft_input = np.fft.ifftshift(FD_symb)
+        
+        TD_symb = np.fft.ifft(ifft_input)
+        
+        
+        # Add cyclic prefix: [TD_symb[-cp_length:] TD_symb]
         TD_symb_cpincl = np.concatenate([TD_symb[-cp_length:], TD_symb])
+        
         
         return TD_symb_cpincl
 
@@ -87,6 +92,7 @@ class WaveformGenerator:
         slot_end = slot_start + N_SYMBOLS_PER_SLOT
 
         slot_data = grid.values[:, slot_start:slot_end]
+        
 
         # Generate OFDM symbols for the slot
         slot_waveform = []
@@ -123,6 +129,7 @@ class WaveformGenerator:
             frame_waveform.append(slot_waveform)
         
         waveform = np.concatenate(frame_waveform)
+        
 
         return waveform
 

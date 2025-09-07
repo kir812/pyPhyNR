@@ -45,6 +45,7 @@ class ResourceGrid:
                 if not re.can_add_channel(channel):
                     raise ValueError(f"Cannot add {channel.channel_type} - resource at RB {mapping.subcarrier//12}, symbol {mapping.symbol} already occupied by {re.channel_type}")
         
+        
         # Then add channel data
         for slot, mappings in re_mapping.items():
             for mapping in mappings:
@@ -60,4 +61,7 @@ class ResourceGrid:
     @property
     def values(self):
         """Get array of complex values"""
-        return np.array([[re.data for re in row] for row in self.grid])
+        values_array = np.array([[re.data for re in row] for row in self.grid])
+        
+        
+        return values_array

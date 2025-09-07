@@ -22,8 +22,8 @@ MAX_PRB_FR1 = 273  # Maximum PRBs in FR1 (100 MHz at 15kHz SCS)
 MAX_PRB_FR2_1 = 264  # Maximum PRBs in FR2-1 (400 MHz at 120kHz SCS)
 MAX_PRB_FR2_2 = 1320  # Maximum PRBs in FR2-2 (2000 MHz at 120kHz SCS)
 
-# Maximum DMRS REs per symbol (from MATLAB reference)
-MAX_DMRS_RE = 3276 // 2  # 1638 REs (matches MATLAB NoDMRSRE)
+# Maximum DMRS REs per symbol
+MAX_DMRS_RE = 3276 // 2  # 1638 REs
 
 # Slot and frame definitions
 N_SYMBOLS_PER_SLOT = 14  # Number of OFDM symbols per slot

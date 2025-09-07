@@ -35,7 +35,7 @@ def map_qam256(bits: np.ndarray) -> np.ndarray:
 
 def generate_random_symbols(n_sc: int, n_symbols: int, modulation: ModulationType = ModulationType.QPSK) -> np.ndarray:
     """
-    Generate random modulated symbols exactly matching MATLAB reference implementation
+    Generate random modulated symbols
     
     Args:
         n_sc: Number of subcarriers
@@ -48,60 +48,57 @@ def generate_random_symbols(n_sc: int, n_symbols: int, modulation: ModulationTyp
     total_symbols = n_sc * n_symbols
     
     if modulation == ModulationType.QPSK:
-        # QPSK: Generate random integers 0-3, then extract bits exactly like reference
-        random_ints = np.random.randint(0, 4, total_symbols)
+        # QPSK: Generate random bits and map to QPSK symbols
+        bits = np.random.randint(0, 2, total_symbols * 2)  # 2 bits per symbol
         symbols = np.zeros(total_symbols, dtype=complex)
-        for i, val in enumerate(random_ints):
-            # Extract bits exactly like reference: b1 = second bit, b0 = first bit
-            b1 = (val >> 1) & 1  # Second bit (MATLAB bitget(x,2))
-            b0 = val & 1         # First bit (MATLAB bitget(x,1))
+        for i in range(total_symbols):
+            b1 = bits[2*i]     # First bit
+            b0 = bits[2*i + 1] # Second bit
             symbols[i] = (1/np.sqrt(2)) * ((1 - 2*b1) + 1j*(1 - 2*b0))
     
     elif modulation == ModulationType.QAM16:
-        # 16QAM: Generate random integers 0-15, then extract bits like MATLAB bitget
-        random_ints = np.random.randint(0, 16, total_symbols)
+        # 16QAM: Generate random bits and map to 16QAM symbols
+        bits = np.random.randint(0, 2, total_symbols * 4)  # 4 bits per symbol
         symbols = np.zeros(total_symbols, dtype=complex)
-        for i, val in enumerate(random_ints):
-            # Extract bits like MATLAB bitget
-            b1 = (val >> 0) & 1  # bitget(x,1) - LSB
-            b2 = (val >> 1) & 1  # bitget(x,2)
-            b3 = (val >> 2) & 1  # bitget(x,3)
-            b4 = (val >> 3) & 1  # bitget(x,4) - MSB
+        for i in range(total_symbols):
+            b1 = bits[4*i]     # First bit
+            b2 = bits[4*i + 1] # Second bit
+            b3 = bits[4*i + 2] # Third bit
+            b4 = bits[4*i + 3] # Fourth bit
             symbols[i] = (1/np.sqrt(10)) * (
                 (1 - 2*b1) * (2 - (1-2*b3)) + 1j * (1 - 2*b2) * (2 - (1-2*b4))
             )
     
     elif modulation == ModulationType.QAM64:
-        # 64QAM: Generate random integers 0-63, then extract bits like MATLAB bitget
-        random_ints = np.random.randint(0, 64, total_symbols)
+        # 64QAM: Generate random bits and map to 64QAM symbols
+        bits = np.random.randint(0, 2, total_symbols * 6)  # 6 bits per symbol
         symbols = np.zeros(total_symbols, dtype=complex)
-        for i, val in enumerate(random_ints):
-            # Extract bits like MATLAB bitget
-            b1 = (val >> 0) & 1  # bitget(x,1) - LSB
-            b2 = (val >> 1) & 1  # bitget(x,2)
-            b3 = (val >> 2) & 1  # bitget(x,3)
-            b4 = (val >> 3) & 1  # bitget(x,4)
-            b5 = (val >> 4) & 1  # bitget(x,5)
-            b6 = (val >> 5) & 1  # bitget(x,6) - MSB
+        for i in range(total_symbols):
+            b1 = bits[6*i]     # First bit
+            b2 = bits[6*i + 1] # Second bit
+            b3 = bits[6*i + 2] # Third bit
+            b4 = bits[6*i + 3] # Fourth bit
+            b5 = bits[6*i + 4] # Fifth bit
+            b6 = bits[6*i + 5] # Sixth bit
             symbols[i] = (1/np.sqrt(42)) * (
                 (1 - 2*b1) * (4 - (1-2*b3) * (2 - (1-2*b5))) +
                 1j * (1 - 2*b2) * (4 - (1-2*b4) * (2 - (1-2*b6)))
             )
+        
     
     elif modulation == ModulationType.QAM256:
-        # 256QAM: Generate random integers 0-255, then extract bits like MATLAB bitget
-        random_ints = np.random.randint(0, 256, total_symbols)
+        # 256QAM: Generate random bits and map to 256QAM symbols
+        bits = np.random.randint(0, 2, total_symbols * 8)  # 8 bits per symbol
         symbols = np.zeros(total_symbols, dtype=complex)
-        for i, val in enumerate(random_ints):
-            # Extract bits like MATLAB bitget
-            b1 = (val >> 0) & 1  # bitget(x,1) - LSB
-            b2 = (val >> 1) & 1  # bitget(x,2)
-            b3 = (val >> 2) & 1  # bitget(x,3)
-            b4 = (val >> 3) & 1  # bitget(x,4)
-            b5 = (val >> 5) & 1  # bitget(x,5)
-            b6 = (val >> 6) & 1  # bitget(x,6)
-            b7 = (val >> 7) & 1  # bitget(x,7)
-            b8 = (val >> 8) & 1  # bitget(x,8) - MSB
+        for i in range(total_symbols):
+            b1 = bits[8*i]     # First bit
+            b2 = bits[8*i + 1] # Second bit
+            b3 = bits[8*i + 2] # Third bit
+            b4 = bits[8*i + 3] # Fourth bit
+            b5 = bits[8*i + 4] # Fifth bit
+            b6 = bits[8*i + 5] # Sixth bit
+            b7 = bits[8*i + 6] # Seventh bit
+            b8 = bits[8*i + 7] # Eighth bit
             symbols[i] = (1/np.sqrt(170)) * (
                 (1 - 2*b1) * (8 - (1-2*b3) * (4 - (1-2*b5) * (2 - (1-2*b7)))) +
                 1j * (1 - 2*b2) * (8 - (1-2*b4) * (4 - (1-2*b6) * (2 - (1-2*b8))))
