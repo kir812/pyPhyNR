@@ -7,7 +7,7 @@ from ..channel_types import ChannelType
 from .base import PhysicalChannel
 from ..modulation import ModulationType, generate_random_symbols
 from ..definitions import N_SC_PER_RB
-from .dmrs import PBCH_DMRS
+# PBCH_DMRS not implemented yet
 
 class PBCH(PhysicalChannel):
     """Physical Broadcast Channel"""
@@ -25,7 +25,7 @@ class PBCH(PhysicalChannel):
             start_symbol=start_symbol,
             num_symbols=num_symbols,
             slot_pattern=slot_pattern,
-            reference_signal=PBCH_DMRS(cell_id=cell_id)
+            reference_signal=None  # PBCH_DMRS not implemented yet
         )
         
         self.cell_id = cell_id

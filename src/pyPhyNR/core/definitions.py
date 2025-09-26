@@ -118,12 +118,12 @@ RB_TABLE = {
     (2000, 4): 660
 }
 
-def get_rb_count(bandwidth_mhz: int, numerology: int) -> int:
+def get_rb_count(bandwidth_mhz: float, numerology: int) -> int:
     """
     Get number of resource blocks for given bandwidth and numerology
     
     Args:
-        bandwidth_mhz: Channel bandwidth in MHz
+        bandwidth_mhz: Channel bandwidth in MHz (can be float for custom bandwidths)
         numerology: μ value (0-4)
         
     Returns:
@@ -132,13 +132,24 @@ def get_rb_count(bandwidth_mhz: int, numerology: int) -> int:
     Raises:
         ValueError: If combination of bandwidth and numerology is not valid
     """
-    key = (bandwidth_mhz, numerology)
-    if key not in RB_TABLE:
+    # First try exact match in RB_TABLE
+    key = (int(bandwidth_mhz), numerology)
+    if key in RB_TABLE:
+        return RB_TABLE[key]
+    
+    # For custom bandwidths, calculate RBs based on subcarrier spacing
+    scs_hz = 15e3 * (2 ** numerology)  # Subcarrier spacing in Hz
+    total_subcarriers = bandwidth_mhz * 1e6 / scs_hz
+    n_rb = int(total_subcarriers / 12)  # 12 subcarriers per RB
+    
+    # Validate the calculated RB count is reasonable
+    if n_rb < 1 or n_rb > 1000:
         raise ValueError(
-            f"Invalid combination of bandwidth ({bandwidth_mhz} MHz) "
-            f"and numerology (μ={numerology})"
+            f"Calculated RB count ({n_rb}) for bandwidth ({bandwidth_mhz} MHz) "
+            f"and numerology (μ={numerology}) is out of reasonable range"
         )
-    return RB_TABLE[key]
+    
+    return n_rb
 
 def get_frequency_range(frequency_hz: float) -> str:
     """

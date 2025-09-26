@@ -5,6 +5,7 @@ Provides a high-level interface for creating 5G NR signals
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
+import numpy as np
 from .carrier import CarrierConfig
 from .channels import SSBlock, CORESET, PDCCH, PDSCH
 from .modulation import ModulationType
@@ -369,12 +370,14 @@ class NRSignalBuilder:
         
         return self
     
-    def generate_signal(self, sample_rate: Optional[float] = None) -> 'NRSignalBuilder':
+    def generate_signal(self, sample_rate: Optional[float] = None, 
+                       target_rms: Optional[float] = None) -> 'NRSignalBuilder':
         """
         Generate IQ samples
         
         Args:
             sample_rate: Optional new sample rate to use
+            target_rms: Optional target RMS power level for normalization
             
         Returns:
             Complex IQ samples
@@ -386,4 +389,14 @@ class NRSignalBuilder:
             self.carrier_config.set_sample_rate(sample_rate)
             
         waveform_gen = WaveformGenerator()
-        return waveform_gen.generate_frame_waveform(self.grid, self.carrier_config)
+        iq_samples = waveform_gen.generate_frame_waveform(self.grid, self.carrier_config)
+        
+        # Apply power normalization if target RMS is specified
+        if target_rms is not None:
+            current_rms = np.sqrt(np.mean(np.abs(iq_samples)**2))
+            if current_rms > 0:
+                scale_factor = target_rms / current_rms
+                iq_samples *= scale_factor
+                print(f"Power normalized: RMS {current_rms:.2f} → {target_rms:.2f} (scale: {scale_factor:.4f})")
+        
+        return iq_samples

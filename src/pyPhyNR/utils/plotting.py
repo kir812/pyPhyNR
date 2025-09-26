@@ -208,7 +208,7 @@ def plot_frequency_domain(waveform: np.ndarray, carrier_config: CarrierConfig, t
     plt.ylabel("Power (dB)")
     plt.grid(True)
     plt.xlim(-carrier_config.sample_rate/2e6, carrier_config.sample_rate/2e6)  # Show full bandwidth
-    plt.ylim(-40, 60)
+    #plt.ylim(-40, 60)
     plt.tight_layout()
     plt.show()
 

@@ -28,7 +28,7 @@ class CarrierConfig:
             raise ValueError("Cell ID must be between 0 and 1007")
 
     @classmethod
-    def from_bandwidth(cls, bandwidth_mhz: int, mu: int) -> 'CarrierConfig':
+    def from_bandwidth(cls, bandwidth_mhz: float, mu: int) -> 'CarrierConfig':
         """Create carrier config from bandwidth"""
         numerology = get_numerology(mu)
         n_rb = get_rb_count(bandwidth_mhz, mu)

@@ -5,7 +5,7 @@
 from .base import PhysicalChannel
 from .pdsch import PDSCH
 from .pdcch import PDCCH
-from .dmrs import DMRS, PDSCH_DMRS, PBCH_DMRS, ReferenceSignal
+from .dmrs import DMRS, PDSCH_DMRS, ReferenceSignal
 from .coreset import CORESET, REGMappingType
 from .pss import PSS
 from .sss import SSS
@@ -18,7 +18,6 @@ __all__ = [
     'PDCCH',
     'DMRS',
     'PDSCH_DMRS',
-    'PBCH_DMRS',
     'ReferenceSignal',
     'CORESET',
     'REGMappingType',
