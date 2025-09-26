@@ -32,7 +32,7 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
-        "Topic :: Scientific/Engineering :: Telecommunications",
+        "Topic :: Scientific/Engineering",
     ],
     keywords="5G NR, physical layer, telecommunications, signal processing",
 ) 
